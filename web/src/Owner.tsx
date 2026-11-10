@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Automation } from './Automation';
 import { OwnerSettings } from './OwnerSettings';
 import { Customers } from './Customers';
+import { Analytics } from './Analytics';
 
 type Appointment = { id: string; reference: string; start_at: string; end_at: string; status: string; customer_name: string; customer_contact: string; customer_note: string; service_name: string; resource_name: string };
 type Summary = { total: number; pending: number; confirmed: number; cancelled: number };
@@ -67,6 +68,7 @@ export function Owner() {
       <p className="mt-8 text-xs text-slate-500">Showing the latest 100 requests. All metrics are calculated from stored appointments.</p>
       <Automation refreshToken={refreshToken} />
       <Customers timezone={timezone} />
+      <Analytics refreshToken={refreshToken} />
       <OwnerSettings />
     </main>}
   </div>;

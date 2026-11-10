@@ -82,6 +82,37 @@ async function handle(request: Request, env: Env): Promise<Response> {
         GROUP BY c.business_id,c.contact_key ORDER BY c.updated_at DESC,c.contact_key LIMIT 50`).bind(b.id,query,query).all();
       return json({ customers: rows.results });
     }
+    if (url.pathname === '/api/owner/analytics' && request.method === 'GET') {
+      const [counts, services, workflows] = await Promise.all([
+        env.DB.prepare(`SELECT COUNT(*) AS total,
+          SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) AS pending,
+          SUM(CASE WHEN status='confirmed' THEN 1 ELSE 0 END) AS confirmed,
+          SUM(CASE WHEN status='declined' THEN 1 ELSE 0 END) AS declined,
+          SUM(CASE WHEN status='cancelled' THEN 1 ELSE 0 END) AS cancelled,
+          SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed,
+          AVG(CASE WHEN status!='pending' THEN (julianday(updated_at)-julianday(created_at))*1440 END) AS avg_decision_minutes
+          FROM appointments WHERE business_id=?`).bind(b.id).first<Record<string, number | null>>(),
+        env.DB.prepare(`SELECT s.name,COUNT(a.id) AS bookings FROM services s JOIN appointments a ON a.service_id=s.id
+          WHERE a.business_id=? AND s.business_id=? GROUP BY s.id,s.name ORDER BY bookings DESC,s.name LIMIT 5`).bind(b.id,b.id).all(),
+        env.DB.prepare(`SELECT COUNT(*) AS total,
+          SUM(CASE WHEN state='done' THEN 1 ELSE 0 END) AS done,
+          SUM(CASE WHEN state='failed' THEN 1 ELSE 0 END) AS failed
+          FROM workflow_events WHERE business_id=?`).bind(b.id).first<Record<string, number | null>>(),
+      ]);
+      const total = Number(counts?.total ?? 0);
+      const successful = Number(counts?.confirmed ?? 0) + Number(counts?.completed ?? 0);
+      const workflowTotal = Number(workflows?.total ?? 0);
+      return json({
+        appointments: {
+          total, pending: Number(counts?.pending ?? 0), confirmed: Number(counts?.confirmed ?? 0),
+          declined: Number(counts?.declined ?? 0), cancelled: Number(counts?.cancelled ?? 0),
+          completed: Number(counts?.completed ?? 0), conversionRate: total ? successful / total : null,
+          avgDecisionMinutes: counts?.avg_decision_minutes ?? null,
+        },
+        popularServices: services.results,
+        workflows: { total: workflowTotal, done: Number(workflows?.done ?? 0), failed: Number(workflows?.failed ?? 0), successRate: workflowTotal ? Number(workflows?.done ?? 0) / workflowTotal : null },
+      });
+    }
     const customerMatch = url.pathname.match(/^\/api\/owner\/customers\/([^/]+)$/);
     if (customerMatch) {
       let contactKey: string;

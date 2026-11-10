@@ -32,6 +32,8 @@ test('a customer can use a suggestion and request a real available booking', asy
     await page.getByLabel('Password').fill(process.env.LOCAL_OWNER_PASSWORD);
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page.getByRole('heading', { name: 'Customers', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Analytics', exact: true })).toBeVisible();
+    await expect(page.getByText('Booking requests', { exact: true })).toBeVisible();
     await page.getByLabel('Search customers').fill(contact);
     await page.getByRole('button', { name: 'Search', exact: true }).click();
     const customer = page.getByRole('button', { name: new RegExp(contact.replaceAll('.', '\\.')) });
