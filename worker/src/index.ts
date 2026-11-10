@@ -2,8 +2,10 @@ import { bookingInput, availableSlots, localDay, slotInterval, withinBookingWind
 import { z } from 'zod';
 import { allowPublicBooking, login, logout, ownerBusiness } from './auth';
 import { canTransition, type AppointmentStatus } from '../../shared/appointments';
+import { Temporal } from '@js-temporal/polyfill';
+import { analyzeEnquiry, cloudflareProvider, type AiBinding } from './ai';
 
-interface Env { DB: D1Database; DEMO_BUSINESS_SLUG: string; ALLOWED_ORIGIN: string; OWNER_USERNAME?: string; OWNER_PASSWORD_HASH?: string }
+interface Env { DB: D1Database; DEMO_BUSINESS_SLUG: string; ALLOWED_ORIGIN: string; OWNER_USERNAME?: string; OWNER_PASSWORD_HASH?: string; AI?: AiBinding; AI_MODEL?: string }
 interface Business { id: string; slug: string; name: string; description: string; timezone: string; currency: string; address: string; phone: string }
 interface Service { id: string; name: string; description: string; duration_min: number; price_minor: number }
 interface Appointment { id: string; reference: string; service_id: string; start_at: string; end_at: string; status: string; customer_contact: string; idempotency_key: string }
@@ -95,7 +97,21 @@ async function handle(request: Request, env: Env): Promise<Response> {
       env.DB.prepare('SELECT id,name,description,duration_min,price_minor FROM services WHERE business_id = ? AND active = 1 ORDER BY sort_order,name').bind(b.id).all<Service>(),
       env.DB.prepare('SELECT weekday,open_min,close_min FROM working_hours WHERE business_id = ? ORDER BY weekday').bind(b.id).all(),
     ]);
-    return json({ business: { slug: b.slug, name: b.name, description: b.description, timezone: b.timezone, currency: b.currency, address: b.address, phone: b.phone }, services: services.results, hours: hours.results });
+    return json({ business: { slug: b.slug, name: b.name, description: b.description, timezone: b.timezone, currency: b.currency, address: b.address, phone: b.phone }, services: services.results, hours: hours.results, aiAvailable: Boolean(env.AI) });
+  }
+
+  if (url.pathname === '/api/enquiries/analyze' && request.method === 'POST') {
+    if (!await allowPublicBooking(request, env.DB, 'ai', 10)) return bad('Too many assistant requests. Try again later.', 429);
+    const parsed = z.object({ text: z.string().trim().min(3).max(500), consentExternalAI: z.boolean().default(false) }).safeParse(await readJson(request));
+    if (!parsed.success) return bad('Please enter a short enquiry');
+    const offered = await env.DB.prepare('SELECT id,name FROM services WHERE business_id = ? AND active = 1 ORDER BY sort_order').bind(b.id).all<{ id: string; name: string }>();
+    const today = Temporal.Now.zonedDateTimeISO(b.timezone).toPlainDate().toString();
+    const allowedModels = new Set(['@cf/meta/llama-3.1-8b-instruct', '@cf/meta/llama-3-8b-instruct']);
+    const configuredModel = env.AI_MODEL || '@cf/meta/llama-3.1-8b-instruct';
+    const provider = parsed.data.consentExternalAI && env.AI && allowedModels.has(configuredModel)
+      ? cloudflareProvider(env.AI, configuredModel) : undefined;
+    const analysis = await analyzeEnquiry(parsed.data.text, offered.results, b.timezone, today, provider);
+    return json(analysis);
   }
 
   if (url.pathname === '/api/availability' && request.method === 'GET') {

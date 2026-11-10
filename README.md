@@ -6,11 +6,13 @@ MicroBizFlow AI is an open-source booking and customer workflow application for 
 
 ## Current status
 
-A working **local MVP** includes service browsing, real slot availability, pending booking requests, database-enforced chair capacity, idempotent submissions, owner sign-in, appointment decisions, and a small owner summary. The public repository exists, but **no public demo has been deployed**. AI extraction, notifications, CRM integrations, customer cancellation, and several owner settings are still on the [roadmap](docs/roadmap.md). Do not use the current build for real customer data.
+A working **local MVP** includes service browsing, real slot availability, pending booking requests, database-enforced chair capacity, idempotent submissions, owner sign-in, appointment decisions, a small owner summary, and a no-key English/Sinhala enquiry assistant. The public repository exists, but **no public demo has been deployed**. Remote AI inference is optional and unconfigured. Notifications, CRM integrations, customer cancellation, and several owner settings are still on the [roadmap](docs/roadmap.md). Do not use the current build for real customer data.
 
 ![Customer page at desktop width](docs/screenshots/customer-desktop.png)
 
 [Narrow viewport preview](docs/screenshots/customer-mobile.png) · Screenshots show fictional demonstration data.
+
+[Owner sign-in preview](docs/screenshots/owner-login.png)
 
 ## Local setup
 
@@ -39,13 +41,16 @@ python -m unittest discover -s tests
 npm run build
 # With npm run dev:pages running in another terminal:
 npm run test:integration:local
+npm run test:ai:local
 ```
 
 The integration smoke test creates fictional bookings in the local D1 database. It checks that simultaneous requests fill two chairs, a third conflicts, and an idempotent replay returns the same reference. [Testing notes](docs/testing.md) record the current results and limits.
 
+The assistant smoke test checks English and Sinhala suggestions without a model key. The [AI evaluation](docs/ai-evaluation.md) describes supported cases and limits. A configured Cloudflare Workers AI binding can use JSON mode only after the visitor explicitly opts in; malformed output, timeouts, and quota errors fall back to deterministic extraction. The UI requires a customer to pick a real available slot before submitting.
+
 ## Architecture
 
-React, TypeScript, Vite, and Tailwind CSS power the web UI. A TypeScript Cloudflare Worker handles REST routes with Zod validation. The same handler runs as a Cloudflare Pages Function, keeping the web app and session cookie on one origin. Cloudflare D1 stores the configuration, appointments, owner sessions, and audit records. The database rejects overlapping reservations on a resource. AI and external integrations are planned as optional adapters; booking rules do not depend on AI.
+React, TypeScript, Vite, and Tailwind CSS power the web UI. A TypeScript Cloudflare Worker handles REST routes with Zod validation. The same handler runs as a Cloudflare Pages Function, keeping the web app and session cookie on one origin. Cloudflare D1 stores the configuration, appointments, owner sessions, and audit records. The database rejects overlapping reservations on a resource. Optional AI can suggest fields, while booking rules remain deterministic. External integrations are planned.
 
 ```mermaid
 flowchart LR
@@ -53,7 +58,7 @@ flowchart LR
   Owner[Owner browser] --> Pages
   Pages --> API[Pages Function / Worker API]
   API --> D1[(D1 SQLite)]
-  API -. future .-> AI[Optional AI adapter]
+  API -. optional .-> AI[Cloudflare AI adapter]
   API -. future .-> Events[Workflow events]
 ```
 
@@ -64,6 +69,7 @@ See [architecture decisions](docs/architecture.md), [deployment prerequisites](d
 - `GET /api/business` — public business information, services, and hours
 - `GET /api/availability?serviceId=...&date=YYYY-MM-DD` — available 15-minute starts
 - `POST /api/bookings` — pending booking request with an idempotency UUID
+- `POST /api/enquiries/analyze` — structured suggestion, no-key by default
 - `/api/owner/*` — login, session, logout, private appointments, summary, and state changes
 
 Owner sessions use HTTP-only cookies. Public booking requests and login attempts have database-backed limits. The interface shows pending requests accurately; it does not send customer messages.

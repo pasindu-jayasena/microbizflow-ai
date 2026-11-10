@@ -69,12 +69,12 @@ export async function logout(request: Request, env: AuthEnv): Promise<Response> 
   return Response.json({ authenticated: false }, { headers: { 'Set-Cookie': sessionCookie('', request, 0) } });
 }
 
-export async function allowPublicBooking(request: Request, db: D1Database): Promise<boolean> {
-  const clientHash = await sha256(request.headers.get('CF-Connecting-IP') ?? 'local');
+export async function allowPublicBooking(request: Request, db: D1Database, scope = 'booking', maximum = 30): Promise<boolean> {
+  const clientHash = await sha256(`${scope}:${request.headers.get('CF-Connecting-IP') ?? 'local'}`);
   const now = Date.now();
   await db.prepare(`INSERT INTO public_request_limits (client_hash,requests,window_start) VALUES (?,1,?)
     ON CONFLICT(client_hash) DO UPDATE SET requests = CASE WHEN ? - window_start >= 3600000 THEN 1 ELSE requests + 1 END,
     window_start = CASE WHEN ? - window_start >= 3600000 THEN ? ELSE window_start END`).bind(clientHash, now, now, now, now).run();
   const row = await db.prepare('SELECT requests FROM public_request_limits WHERE client_hash = ?').bind(clientHash).first<{ requests: number }>();
-  return (row?.requests ?? 999) <= 30;
+  return (row?.requests ?? 999) <= maximum;
 }

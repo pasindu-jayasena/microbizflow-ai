@@ -6,6 +6,8 @@ interface Env {
   ALLOWED_ORIGIN: string;
   OWNER_USERNAME?: string;
   OWNER_PASSWORD_HASH?: string;
+  AI?: { run(model: string, input: unknown): Promise<unknown> };
+  AI_MODEL?: string;
 }
 
 // Pages Functions run on the Workers runtime. Keep the browser and API on one

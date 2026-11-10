@@ -4,8 +4,9 @@ import { Temporal } from '@js-temporal/polyfill';
 type Service = { id: string; name: string; description: string; duration_min: number; price_minor: number };
 type Hours = { weekday: number; open_min: number; close_min: number };
 type Business = { slug: string; name: string; description: string; timezone: string; currency: string; address: string; phone: string };
-type Catalogue = { business: Business; services: Service[]; hours: Hours[] };
+type Catalogue = { business: Business; services: Service[]; hours: Hours[]; aiAvailable?: boolean };
 type BookingResult = { reference: string; status: string };
+type Analysis = { intent: { serviceId: string | null; date: string | null; time: string | null; language: string; missing: string[]; clarification: string | null }; mode: 'demo' | 'cloudflare' | 'fallback'; latencyMs: number };
 
 const API = import.meta.env.VITE_API_BASE_URL?.trim() ?? '';
 const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -36,6 +37,11 @@ export function App() {
   const [submitError, setSubmitError] = useState('');
   const [result, setResult] = useState<BookingResult | null>(null);
   const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
+  const [enquiry, setEnquiry] = useState('');
+  const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [analysisError, setAnalysisError] = useState('');
+  const [analyzing, setAnalyzing] = useState(false);
+  const [consentExternalAI, setConsentExternalAI] = useState(false);
 
   useEffect(() => {
     api<Catalogue>('/api/business').then(data => {
@@ -61,6 +67,24 @@ export function App() {
   const minDate = today?.toString();
   const maxDate = today?.add({ days: 60 }).toString();
   const resetRequest = () => { setRequestKey(crypto.randomUUID()); setSubmitError(''); };
+
+  async function analyze() {
+    if (!enquiry.trim() || analyzing) return;
+    setAnalyzing(true); setAnalysisError(''); setAnalysis(null);
+    try {
+      const result = await api<Analysis>('/api/enquiries/analyze', { method: 'POST', body: JSON.stringify({ text: enquiry, consentExternalAI }) });
+      setAnalysis(result);
+    } catch (error) { setAnalysisError(error instanceof Error ? error.message : 'Could not analyze your message.'); }
+    finally { setAnalyzing(false); }
+  }
+
+  function applyAnalysis() {
+    if (!analysis) return;
+    if (analysis.intent.serviceId && catalogue?.services.some(item => item.id === analysis.intent.serviceId)) setSelected(analysis.intent.serviceId);
+    if (analysis.intent.date) setDate(analysis.intent.date);
+    setTime(''); resetRequest();
+    document.getElementById('service')?.focus();
+  }
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -120,6 +144,7 @@ export function App() {
         <div className="rounded-3xl bg-white p-6 shadow-[0_12px_50px_rgba(20,40,38,.07)] sm:p-9">
           {result ? <div role="status" className="py-8 text-center"><div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-mint text-3xl text-pine" aria-hidden="true">✓</div><h3 className="mt-6 text-3xl font-semibold">Request received</h3><p className="mt-3 text-slate-600">Your appointment request is pending confirmation.</p><p className="mt-6 text-xs font-semibold uppercase tracking-widest text-slate-500">Booking reference</p><p className="mt-2 text-2xl font-bold tracking-wide text-pine">{result.reference}</p><p className="mt-4 text-sm text-slate-500">Keep this reference for your records.</p><button type="button" className="button-primary mt-8" onClick={() => { setResult(null); setTime(''); setName(''); setContact(''); setNote(''); resetRequest(); }}>Make another request</button></div> : <form onSubmit={submit}>
             <div className="mb-7 flex items-center justify-between gap-4"><div><p className="eyebrow">Book online</p><h3 className="mt-1 text-2xl font-semibold">Request an appointment</h3></div><span className="rounded-full bg-mint px-3 py-1 text-xs font-semibold text-pine">No payment needed</span></div>
+            <div className="mb-7 rounded-2xl border border-emerald-100 bg-mint p-5"><p className="text-sm font-semibold text-pine">Need help finding a time?</p><p className="mt-1 text-sm text-slate-600">Describe your visit in English or Sinhala. We’ll suggest the details we can recognize; you choose the actual booking slot.</p><label className="field-label mt-4" htmlFor="enquiry">Your message</label><textarea className="field min-h-20 resize-y" id="enquiry" maxLength={500} value={enquiry} onChange={event => { setEnquiry(event.target.value); setAnalysis(null); }} placeholder="I need a haircut tomorrow around 5 PM" />{catalogue.aiAvailable && <label className="mt-3 flex items-start gap-2 text-xs leading-5 text-slate-600"><input type="checkbox" className="mt-1 accent-pine" checked={consentExternalAI} onChange={event => setConsentExternalAI(event.target.checked)} /><span>Allow this message to be processed by Cloudflare Workers AI. Obvious contact details are redacted. Avoid personal details.</span></label>}<button type="button" className="mt-4 rounded-full bg-white px-5 py-2 text-sm font-semibold text-pine shadow-sm disabled:opacity-50" onClick={() => void analyze()} disabled={analyzing || enquiry.trim().length < 3}>{analyzing ? 'Reading your message…' : 'Find details'}</button>{analysisError && <p role="alert" className="mt-3 text-sm text-red-700">{analysisError}</p>}{analysis && <div className="mt-4 rounded-xl bg-white p-4 text-sm" role="status"><p className="font-semibold text-pine">{analysis.mode === 'cloudflare' ? 'AI suggestion' : analysis.mode === 'fallback' ? 'Simple suggestion (AI unavailable)' : 'Simple suggestion'}</p><p className="mt-2 text-slate-600">Service: {catalogue.services.find(item => item.id === analysis.intent.serviceId)?.name ?? 'Please choose'} · Date: {analysis.intent.date ?? 'Please choose'} · Time: {analysis.intent.time ? labelTime(analysis.intent.time) : 'Please choose'}</p>{analysis.intent.clarification && <p className="mt-2 text-slate-600">{analysis.intent.clarification}</p>}{(analysis.intent.serviceId || analysis.intent.date) && <button type="button" className="mt-3 font-semibold text-pine underline underline-offset-4" onClick={applyAnalysis}>Use suggested service and date</button>}</div>}</div>
             <label className="field-label" htmlFor="service">Service</label><select className="field" id="service" required value={selected} onChange={event => { setSelected(event.target.value); resetRequest(); }}><option value="" disabled>Choose a service</option>{catalogue.services.map(item => <option key={item.id} value={item.id}>{item.name} · {item.duration_min} min · {money(item.price_minor, catalogue.business.currency)}</option>)}</select>
             <label className="field-label mt-5" htmlFor="date">Date</label><input className="field" id="date" type="date" required min={minDate} max={maxDate} value={date} onChange={event => { setDate(event.target.value); resetRequest(); }} />
             <fieldset className="mt-6"><legend className="field-label">Available times</legend><p className="mb-3 text-xs text-slate-500">{catalogue.business.timezone} · Appointment times are subject to confirmation</p>{slotsLoading ? <p role="status" className="text-sm text-slate-600">Checking available times…</p> : slotError ? <p role="alert" className="text-sm text-red-700">{slotError}</p> : slots.length ? <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">{slots.map(slot => <button key={slot} type="button" aria-pressed={time === slot} className={`rounded-lg border px-2 py-3 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-pine ${time === slot ? 'border-pine bg-pine text-white' : 'border-slate-200 hover:border-pine'}`} onClick={() => { setTime(slot); resetRequest(); }}>{labelTime(slot)}</button>)}</div> : <p className="rounded-lg bg-cream p-4 text-sm text-slate-600">No times available on this date. Please choose another day.</p>}</fieldset>
