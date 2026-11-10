@@ -59,6 +59,16 @@ class SchemaTest(unittest.TestCase):
         audit = self.db.execute('SELECT old_state,new_state,actor FROM notification_audit ORDER BY id').fetchall()
         self.assertEqual(audit, [(None, 'needs_approval', 'workflow'), ('needs_approval', 'approved', 'owner'), ('approved', 'mock_delivered', 'workflow')])
 
+    def test_customer_records_deduplicate_contacts_and_keep_notes(self):
+        self.create('one', 'chair_1')
+        self.db.execute("UPDATE customer_records SET notes='Prefers mornings' WHERE business_id='biz_demo' AND contact_key='demo@example.invalid'")
+        self.db.execute("""INSERT INTO appointments
+            (id,reference,business_id,service_id,resource_id,customer_name,customer_contact,start_at,end_at,idempotency_key)
+            VALUES ('later','later','biz_demo','svc_cut','chair_2','Fictional Visitor Two','DEMO@example.invalid','2026-11-16T03:30:00.000Z','2026-11-16T04:15:00.000Z','later')""")
+        row = self.db.execute("SELECT display_name,contact,notes FROM customer_records WHERE business_id='biz_demo' AND contact_key='demo@example.invalid'").fetchone()
+        self.assertEqual(row, ('Fictional Visitor Two', 'DEMO@example.invalid', 'Prefers mornings'))
+        self.assertEqual(self.db.execute('SELECT COUNT(*) FROM customer_records').fetchone()[0], 1)
+
 
 if __name__ == '__main__':
     unittest.main()

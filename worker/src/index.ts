@@ -73,6 +73,35 @@ async function handle(request: Request, env: Env): Promise<Response> {
       ]);
       return json({ services: services.results, hours: hours.results });
     }
+    if (url.pathname === '/api/owner/customers' && request.method === 'GET') {
+      const query = (url.searchParams.get('q') ?? '').trim();
+      if (query.length > 100) return bad('Search is too long');
+      const rows = await env.DB.prepare(`SELECT c.contact_key,c.display_name,c.contact,c.notes,COUNT(a.id) AS booking_count,MAX(a.start_at) AS last_start_at
+        FROM customer_records c LEFT JOIN appointments a ON a.business_id=c.business_id AND lower(trim(a.customer_contact))=c.contact_key
+        WHERE c.business_id=? AND (instr(lower(c.display_name),lower(?)) > 0 OR instr(lower(c.contact),lower(?)) > 0)
+        GROUP BY c.business_id,c.contact_key ORDER BY c.updated_at DESC,c.contact_key LIMIT 50`).bind(b.id,query,query).all();
+      return json({ customers: rows.results });
+    }
+    const customerMatch = url.pathname.match(/^\/api\/owner\/customers\/([^/]+)$/);
+    if (customerMatch) {
+      let contactKey: string;
+      try { contactKey = decodeURIComponent(customerMatch[1]!).toLowerCase().trim(); } catch { return bad('Invalid customer'); }
+      if (!contactKey || contactKey.length > 120) return bad('Invalid customer');
+      if (request.method === 'GET') {
+        const customer = await env.DB.prepare('SELECT contact_key,display_name,contact,notes FROM customer_records WHERE business_id=? AND contact_key=?').bind(b.id,contactKey).first();
+        if (!customer) return bad('Customer not found', 404);
+        const appointments = await env.DB.prepare(`SELECT a.reference,a.start_at,a.status,s.name AS service_name FROM appointments a JOIN services s ON s.id=a.service_id
+          WHERE a.business_id=? AND lower(trim(a.customer_contact))=? ORDER BY a.start_at DESC LIMIT 100`).bind(b.id,contactKey).all();
+        return json({ customer, appointments: appointments.results });
+      }
+      if (request.method === 'PATCH') {
+        const parsed = z.object({ notes: z.string().trim().max(1000) }).safeParse(await readJson(request));
+        if (!parsed.success) return bad('Invalid customer notes');
+        const result = await env.DB.prepare('UPDATE customer_records SET notes=?,updated_at=CURRENT_TIMESTAMP WHERE business_id=? AND contact_key=?').bind(parsed.data.notes,b.id,contactKey).run();
+        if (result.meta.changes < 1) return bad('Customer not found', 404);
+        return json({ contactKey });
+      }
+    }
     if (url.pathname === '/api/owner/services' && request.method === 'POST') {
       const parsed = serviceConfig.safeParse(await readJson(request));
       if (!parsed.success) return bad('Invalid service details');

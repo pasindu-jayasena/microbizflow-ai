@@ -8,6 +8,8 @@ Set `LOCAL_OWNER_PASSWORD` and run `npm run test:config:local` against local Pag
 
 With the same variable set, `npm run test:e2e` also signs in and saves a service and day through the owner UI. CI creates a disposable local owner with a generated password for this check; it does not use deployment credentials.
 
+`npm run test:customers:local` creates a fictional booking, searches its generated customer record, verifies private appointment history and note updates, then restores the original note. The Playwright booking flow also checks the owner customer view when `LOCAL_OWNER_PASSWORD` is set.
+
 Latest measured local results on 2026-11-11: TypeScript check passed; ESLint passed; Vitest 20 tests passed; Python unittest 4 tests passed; Vite build passed; local booking, no-key AI, and approval workflow smoke tests passed; Pages owner route returned a protected list after login. `npm install` reported zero audit findings after the patched development dependency override.
 
 Automated browser end-to-end coverage, CSRF tests, and scheduled workflow recovery remain to be added. Workflow tests cover database event creation, customer draft approval, mock delivery failure and retry. The AI suite covers invalid model output, provider failures, timeouts, and limited retry behavior. The deployed demo also needs an end-to-end booking check against its public HTTPS URL. GitHub CI passed for commits `bdac60d7b772dd7aa0a6fc639e38c85f74b6e0bf` and `29aba32ea4e7b85450d7d55d0cf4443d331496c0`.

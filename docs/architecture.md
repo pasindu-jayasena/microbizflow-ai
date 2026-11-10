@@ -12,7 +12,7 @@ Appointments reserve a specific resource for a time interval. Pending and confir
 
 ## Data model plan
 
-Implemented tables: businesses, services, resources, working_hours, appointments, appointment_audit, owner_sessions, login_attempts, public_request_limits, workflow_events, notifications, and notification_audit. Customer, enquiry, and integration tables remain planned. Every private row carries or derives a business scope. Business IDs are explicit in private queries. Foreign keys, unique idempotency keys, state checks, and indexes support integrity and performance. Migrations are versioned SQL files.
+Implemented tables: businesses, services, resources, working_hours, appointments, appointment_audit, owner_sessions, login_attempts, public_request_limits, workflow_events, notifications, notification_audit, and customer_records. Enquiry and integration tables remain planned. Every private row carries or derives a business scope. Business IDs are explicit in private queries. Foreign keys, unique idempotency keys, state checks, and indexes support integrity and performance. Migrations are versioned SQL files.
 
 ## Security and AI
 
@@ -20,4 +20,4 @@ Public routes expose only publishable business and availability data. Owner rout
 
 ## Decisions pending implementation
 
-Remaining design work includes customer identity and cancellation, retention/deletion controls, broader language evaluation, secure webhooks, scheduled reminders, and external integration adapters. The current owner model is a single local account per deployment; multi-tenant owner management is future work. Cloudflare free-tier limits and applicable package licenses must be rechecked before deployment.
+Remaining design work includes verified customer ownership and cancellation, retention/deletion controls, broader language evaluation, secure webhooks, scheduled reminders, and external integration adapters. The current owner model is a single local account per deployment; multi-tenant owner management is future work. Cloudflare free-tier limits and applicable package licenses must be rechecked before deployment.

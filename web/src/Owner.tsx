@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Automation } from './Automation';
 import { OwnerSettings } from './OwnerSettings';
+import { Customers } from './Customers';
 
 type Appointment = { id: string; reference: string; start_at: string; end_at: string; status: string; customer_name: string; customer_contact: string; customer_note: string; service_name: string; resource_name: string };
 type Summary = { total: number; pending: number; confirmed: number; cancelled: number };
@@ -65,6 +66,7 @@ export function Owner() {
       <div className="mt-9"><div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-semibold">Recent requests</h2>{refreshing && <span className="text-sm text-slate-500" role="status">Updating…</span>}</div>{appointments.length === 0 ? <div className="rounded-2xl bg-white p-10 text-center text-slate-600">No appointment requests yet. New requests will appear here.</div> : <div className="space-y-3">{appointments.map(item => <article key={item.id} className="grid gap-5 rounded-2xl bg-white p-5 shadow-sm sm:grid-cols-[1fr_auto] sm:items-center"><div><div className="flex flex-wrap items-center gap-3"><h3 className="font-semibold">{item.customer_name}</h3><span className={`rounded-full px-3 py-1 text-xs font-semibold ${item.status === 'pending' ? 'bg-amber-50 text-amber-800' : 'bg-mint text-pine'}`}>{item.status}</span></div><p className="mt-2 text-sm text-slate-600">{item.service_name} · {new Intl.DateTimeFormat('en-LK', { dateStyle: 'medium', timeStyle: 'short', timeZone: timezone }).format(new Date(item.start_at))} · {item.resource_name}</p><p className="mt-1 text-sm text-slate-600">{item.customer_contact} · {item.reference}</p>{item.customer_note && <p className="mt-2 text-sm text-slate-500">{item.customer_note}</p>}</div><div className="flex flex-wrap gap-2">{item.status === 'pending' && <><button disabled={busy} onClick={() => void changeStatus(item, 'confirmed')} className="rounded-full bg-pine px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Confirm</button><button disabled={busy} onClick={() => void changeStatus(item, 'declined')} className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-50">Decline</button></>}{item.status === 'confirmed' && <><button disabled={busy} onClick={() => void changeStatus(item, 'completed')} className="rounded-full bg-pine px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Complete</button><button disabled={busy} onClick={() => void changeStatus(item, 'cancelled')} className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-50">Cancel</button></>}</div></article>)}</div>}</div>
       <p className="mt-8 text-xs text-slate-500">Showing the latest 100 requests. All metrics are calculated from stored appointments.</p>
       <Automation refreshToken={refreshToken} />
+      <Customers timezone={timezone} />
       <OwnerSettings />
     </main>}
   </div>;

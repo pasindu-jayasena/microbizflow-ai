@@ -22,10 +22,24 @@ test('a customer can use a suggestion and request a real available booking', asy
   await expect(page.locator('fieldset button').first()).toBeVisible();
   await page.locator('fieldset button').first().click();
   await page.getByLabel('Your name').fill('Fictional Browser Test');
-  await page.getByLabel('Email or phone').fill(`browser-${crypto.randomUUID()}@example.invalid`);
+  const contact = `browser-${crypto.randomUUID()}@example.invalid`;
+  await page.getByLabel('Email or phone').fill(contact);
   await page.getByRole('button', { name: /Request Signature haircut/ }).click();
   await expect(page.getByRole('heading', { name: 'Request received' })).toBeVisible();
   await expect(page.getByText(/MBF-[A-F0-9]{8}/)).toBeVisible();
+  if (process.env.LOCAL_OWNER_PASSWORD) {
+    await page.goto('/owner');
+    await page.getByLabel('Password').fill(process.env.LOCAL_OWNER_PASSWORD);
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page.getByRole('heading', { name: 'Customers', exact: true })).toBeVisible();
+    await page.getByLabel('Search customers').fill(contact);
+    await page.getByRole('button', { name: 'Search', exact: true }).click();
+    const customer = page.getByRole('button', { name: new RegExp(contact.replaceAll('.', '\\.')) });
+    await expect(customer).toBeVisible();
+    await customer.click();
+    await expect(page.getByRole('heading', { name: 'Appointment history' })).toBeVisible();
+    await expect(page.getByText(contact).last()).toBeVisible();
+  }
 });
 
 test('owner records stay behind the sign-in screen', async ({ page, request }) => {
