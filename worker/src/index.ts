@@ -4,6 +4,7 @@ import { allowPublicBooking, login, logout, ownerBusiness } from './auth';
 import { canTransition, type AppointmentStatus } from '../../shared/appointments';
 import { Temporal } from '@js-temporal/polyfill';
 import { analyzeEnquiry, cloudflareProvider, type AiBinding } from './ai';
+import { approveNotification, deliverApproved, processEvent, processPendingEvents } from './workflows';
 
 interface Env { DB: D1Database; DEMO_BUSINESS_SLUG: string; ALLOWED_ORIGIN: string; OWNER_USERNAME?: string; OWNER_PASSWORD_HASH?: string; AI?: AiBinding; AI_MODEL?: string }
 interface Business { id: string; slug: string; name: string; description: string; timezone: string; currency: string; address: string; phone: string }
@@ -70,6 +71,29 @@ async function handle(request: Request, env: Env): Promise<Response> {
         WHERE a.business_id = ? ORDER BY a.start_at DESC LIMIT 100`).bind(b.id).all();
       return json({ appointments: rows.results });
     }
+    if (url.pathname === '/api/owner/workflows' && request.method === 'GET') {
+      const rows = await env.DB.prepare(`SELECT e.event_key,e.kind,e.subject_status,e.state,e.attempts,e.last_error,e.created_at,a.reference
+        FROM workflow_events e JOIN appointments a ON a.id=e.appointment_id
+        WHERE e.business_id=? ORDER BY e.id DESC LIMIT 50`).bind(b.id).all();
+      return json({ workflows: rows.results });
+    }
+    if (url.pathname === '/api/owner/workflows/run' && request.method === 'POST') {
+      return json(await processPendingEvents(env.DB, b.id));
+    }
+    if (url.pathname === '/api/owner/notifications' && request.method === 'GET') {
+      const rows = await env.DB.prepare(`SELECT n.id,n.kind,n.body,n.state,n.attempts,n.created_at,n.approved_at,n.delivered_at,a.reference
+        FROM notifications n JOIN appointments a ON a.id=n.appointment_id
+        WHERE n.business_id=? ORDER BY n.id DESC LIMIT 50`).bind(b.id).all();
+      return json({ notifications: rows.results });
+    }
+    const notificationAction = url.pathname.match(/^\/api\/owner\/notifications\/(\d+)\/(approve|retry)$/);
+    if (notificationAction && request.method === 'POST') {
+      const id = Number(notificationAction[1]);
+      if (!Number.isSafeInteger(id) || id < 1) return bad('Invalid notification');
+      if (notificationAction[2] === 'approve' && !await approveNotification(env.DB, b.id, id)) return bad('Notification is not awaiting approval', 409);
+      const delivered = await deliverApproved(env.DB, b.id, id);
+      return json({ id, mockDelivered: delivered });
+    }
     if (url.pathname === '/api/owner/summary' && request.method === 'GET') {
       const row = await env.DB.prepare(`SELECT COUNT(*) AS total, SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) AS pending,
         SUM(CASE WHEN status='confirmed' THEN 1 ELSE 0 END) AS confirmed,
@@ -87,6 +111,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
       if (!canTransition(current.status as AppointmentStatus, parsed.data.status)) return bad('Invalid status transition', 409);
       const updated = await env.DB.prepare('UPDATE appointments SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND business_id = ? AND status = ?').bind(parsed.data.status, id, b.id, current.status).run();
       if (updated.meta.changes < 1) return bad('Appointment changed. Refresh and try again.', 409);
+      try { await processEvent(env.DB, b.id, `${id}:status:${parsed.data.status}`); } catch { /* Durable event remains for manual retry. */ }
       return json({ id, status: parsed.data.status });
     }
     return bad('Not found', 404);
@@ -160,6 +185,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
     }
     const created = await findExisting();
     if (!created) return bad('This time is no longer available', 409);
+    try { await processEvent(env.DB, b.id, `${created.id}:created`); } catch { /* Durable event remains for manual retry. */ }
     return json({ reference: created.reference, status: created.status }, 201);
   }
   return bad('Not found', 404);

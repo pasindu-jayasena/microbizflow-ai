@@ -6,7 +6,7 @@ MicroBizFlow AI is an open-source booking and customer workflow application for 
 
 ## Current status
 
-A working **local MVP** includes service browsing, real slot availability, pending booking requests, database-enforced chair capacity, idempotent submissions, owner sign-in, appointment decisions, a small owner summary, and a no-key English/Sinhala enquiry assistant. The public repository exists, but **no public demo has been deployed**. Remote AI inference is optional and unconfigured. Notifications, CRM integrations, customer cancellation, and several owner settings are still on the [roadmap](docs/roadmap.md). Do not use the current build for real customer data.
+A working **local MVP** includes service browsing, real slot availability, pending booking requests, database-enforced chair capacity, idempotent submissions, owner sign-in, appointment decisions, a small owner summary, a no-key English/Sinhala enquiry assistant, and approval-gated mock notifications. The public repository exists, but **no public demo has been deployed**. Remote AI inference is optional and unconfigured. Real messaging, CRM integrations, customer cancellation, and several owner settings are still on the [roadmap](docs/roadmap.md). Do not use the current build for real customer data.
 
 ![Customer page at desktop width](docs/screenshots/customer-desktop.png)
 
@@ -42,11 +42,15 @@ npm run build
 # With npm run dev:pages running in another terminal:
 npm run test:integration:local
 npm run test:ai:local
+# Set LOCAL_OWNER_PASSWORD first for the protected workflow test:
+npm run test:workflow:local
 ```
 
 The integration smoke test creates fictional bookings in the local D1 database. It checks that simultaneous requests fill two chairs, a third conflicts, and an idempotent replay returns the same reference. [Testing notes](docs/testing.md) record the current results and limits.
 
 The assistant smoke test checks English and Sinhala suggestions without a model key. The [AI evaluation](docs/ai-evaluation.md) describes supported cases and limits. A configured Cloudflare Workers AI binding can use JSON mode only after the visitor explicitly opts in; malformed output, timeouts, and quota errors fall back to deterministic extraction. The UI requires a customer to pick a real available slot before submitting.
+
+The protected workflow smoke test needs `LOCAL_OWNER_PASSWORD` set in that terminal; it never prints it. It creates a fictional booking, confirms it through the owner API, approves the resulting customer draft, and verifies mock delivery without sending a real message. See [automation behavior](docs/automation.md).
 
 ## Architecture
 
@@ -59,7 +63,8 @@ flowchart LR
   Pages --> API[Pages Function / Worker API]
   API --> D1[(D1 SQLite)]
   API -. optional .-> AI[Cloudflare AI adapter]
-  API -. future .-> Events[Workflow events]
+  API --> Events[Durable workflow events]
+  Events --> Approval[Owner approval & mock outbox]
 ```
 
 See [architecture decisions](docs/architecture.md), [deployment prerequisites](docs/deployment.md), and [privacy notes](PRIVACY.md).
@@ -77,7 +82,7 @@ Owner sessions use HTTP-only cookies. Public booking requests and login attempts
 ## Project documents
 
 - [Roadmap and progress](docs/roadmap.md) · [Progress log](docs/progress.md)
-- [Architecture](docs/architecture.md) · [Testing](docs/testing.md) · [Deployment](docs/deployment.md)
+- [Architecture](docs/architecture.md) · [Automation](docs/automation.md) · [Testing](docs/testing.md) · [Deployment](docs/deployment.md)
 - [Security](SECURITY.md) · [Privacy](PRIVACY.md) · [Contributing](CONTRIBUTING.md) · [Code of Conduct](CODE_OF_CONDUCT.md)
 
 ## License

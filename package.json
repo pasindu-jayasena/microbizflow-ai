@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:integration:local": "node scripts/smoke-booking.mjs",
     "test:ai:local": "node scripts/smoke-ai.mjs",
+    "test:workflow:local": "node scripts/smoke-workflow.mjs",
     "owner:setup:local": "node scripts/setup-owner.mjs",
     "db:migrate:local": "node scripts/wrangler.mjs d1 migrations apply microbizflow-local --config wrangler.worker.toml --local",
     "db:seed:local": "node scripts/wrangler.mjs d1 execute microbizflow-local --config wrangler.worker.toml --local --file=./db/seed.sql"

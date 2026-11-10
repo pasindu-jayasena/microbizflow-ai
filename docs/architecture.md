@@ -2,7 +2,7 @@
 
 ## Scope and system boundaries
 
-The public web app presents business information and submits booking requests. The Worker API validates requests and owns all database access. The same handler runs in a Pages Function, so the browser and API share an origin. Owner endpoints require an authenticated, business-scoped session. D1 stores business configuration and operational records. Optional AI and integration adapters remain planned; the core booking workflow already works without them.
+The public web app presents business information and submits booking requests. The Worker API validates requests and owns all database access. The same handler runs in a Pages Function, so the browser and API share an origin. Owner endpoints require an authenticated, business-scoped session. D1 stores business configuration and operational records. The assistant can use a no-key extractor or an optional Cloudflare AI adapter; the core booking workflow works without inference. External integration adapters remain planned.
 
 The first business is a fictional two-chair barbershop in `Asia/Colombo`. Business time zone, services, working hours, and bookable resources are data, not shared-code constants. This permits another appointment-based business to use the booking engine.
 
@@ -12,12 +12,12 @@ Appointments reserve a specific resource for a time interval. Pending and confir
 
 ## Data model plan
 
-Implemented tables: businesses, services, resources, working_hours, appointments, appointment_audit, owner_sessions, login_attempts, and public_request_limits. Customer, enquiry, workflow, notification, and integration tables remain planned. Every private row carries or derives a business scope. Business IDs are explicit in private queries. Foreign keys, unique idempotency keys, state checks, and indexes support integrity and performance. Migrations are versioned SQL files.
+Implemented tables: businesses, services, resources, working_hours, appointments, appointment_audit, owner_sessions, login_attempts, public_request_limits, workflow_events, notifications, and notification_audit. Customer, enquiry, and integration tables remain planned. Every private row carries or derives a business scope. Business IDs are explicit in private queries. Foreign keys, unique idempotency keys, state checks, and indexes support integrity and performance. Migrations are versioned SQL files.
 
 ## Security and AI
 
-Public routes expose only publishable business and availability data. Owner routes use PBKDF2 password verification and hashed, expiring D1 sessions in HTTP-only, SameSite=Strict cookies. The API checks request origins, and production HTTPS adds the Secure cookie flag. Zod schemas validate API input; SQL parameters prevent injection. Request bodies are bounded, and database-backed per-client limits protect booking, assistant, and login endpoints. Logs omit secrets and private enquiry content. The assistant uses deterministic extraction by default; an optional Cloudflare AI binding requires visitor consent and validated structured output. AI cannot submit a booking. External messaging is not implemented.
+Public routes expose only publishable business and availability data. Owner routes use PBKDF2 password verification and hashed, expiring D1 sessions in HTTP-only, SameSite=Strict cookies. The API checks request origins, and production HTTPS adds the Secure cookie flag. Zod schemas validate API input; SQL parameters prevent injection. Request bodies are bounded, and database-backed per-client limits protect booking, assistant, and login endpoints. Logs omit secrets and private enquiry content. The assistant uses deterministic extraction by default; an optional Cloudflare AI binding requires visitor consent and validated structured output. AI cannot submit a booking. Customer-facing notification drafts require owner approval and use a mock delivery adapter; no external message is sent.
 
 ## Decisions pending implementation
 
-Remaining design work includes customer identity and cancellation, retention/deletion controls, broader language evaluation, durable workflow events, notification approval, and external integration adapters. The current owner model is a single local account per deployment; multi-tenant owner management is future work. Cloudflare free-tier limits and applicable package licenses must be rechecked before deployment.
+Remaining design work includes customer identity and cancellation, retention/deletion controls, broader language evaluation, secure webhooks, scheduled reminders, and external integration adapters. The current owner model is a single local account per deployment; multi-tenant owner management is future work. Cloudflare free-tier limits and applicable package licenses must be rechecked before deployment.

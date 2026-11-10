@@ -42,6 +42,23 @@ class SchemaTest(unittest.TestCase):
         rows = self.db.execute("SELECT old_status,new_status FROM appointment_audit WHERE appointment_id='one' ORDER BY id").fetchall()
         self.assertEqual(rows, [(None, 'pending'), ('pending', 'confirmed')])
 
+    def test_workflow_events_are_enqueued_with_appointments(self):
+        self.create('one', 'chair_1')
+        self.db.execute("UPDATE appointments SET status='confirmed' WHERE id='one'")
+        events = self.db.execute("SELECT event_key,kind FROM workflow_events ORDER BY id").fetchall()
+        self.assertEqual(events, [('one:created', 'booking_requested'), ('one:status:confirmed', 'status_changed')])
+
+    def test_notification_approval_is_audited(self):
+        self.create('one', 'chair_1')
+        self.db.execute("UPDATE appointments SET status='confirmed' WHERE id='one'")
+        self.db.execute("""INSERT INTO notifications
+            (business_id,appointment_id,event_key,kind,body,state)
+            VALUES ('biz_demo','one','one:status:confirmed','customer_draft','Fictional message','needs_approval')""")
+        self.db.execute("UPDATE notifications SET state='approved' WHERE id=1")
+        self.db.execute("UPDATE notifications SET state='mock_delivered' WHERE id=1")
+        audit = self.db.execute('SELECT old_state,new_state,actor FROM notification_audit ORDER BY id').fetchall()
+        self.assertEqual(audit, [(None, 'needs_approval', 'workflow'), ('needs_approval', 'approved', 'owner'), ('approved', 'mock_delivered', 'workflow')])
+
 
 if __name__ == '__main__':
     unittest.main()

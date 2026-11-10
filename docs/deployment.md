@@ -1,6 +1,6 @@
 # Deployment
 
-No deployment has been performed. The target is a low-traffic $0/month demonstration on Cloudflare Pages Functions (the Workers runtime) and D1 with provider subdomains. Never enable billing or paid resources without explicit owner approval.
+No deployment has been performed. The target is a low-traffic $0/month demonstration on Cloudflare Pages Functions (the Workers runtime) and D1 with provider subdomains. Never enable billing or paid resources without explicit owner approval. Wrangler is authenticated to the owner's email, but the OAuth token lacks Billing Read: a read-only subscription lookup returned HTTP 403. The account's Free plan still needs dashboard confirmation before provisioning.
 
 As checked on 2026-11-11, [Workers Free](https://developers.cloudflare.com/workers/platform/limits/) lists 100,000 requests/day and 10 ms CPU time per request. [D1 Free](https://developers.cloudflare.com/d1/platform/pricing/) lists 5 million rows read/day, 100,000 rows written/day, and 5 GB total storage. [Cloudflare's September 2026 notice](https://developers.cloudflare.com/changelog/post/2026-09-01-d1-free-tier-limit-enforcement/) says D1 requests fail when daily free row limits are reached. These limits can change; recheck them before deployment and do not promise uptime or unlimited usage.
 
