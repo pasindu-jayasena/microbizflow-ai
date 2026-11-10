@@ -1,0 +1,167 @@
+import { bookingInput, availableSlots, localDay, slotInterval, withinBookingWindow } from '../../shared/booking';
+import { z } from 'zod';
+import { allowPublicBooking, login, logout, ownerBusiness } from './auth';
+import { canTransition, type AppointmentStatus } from '../../shared/appointments';
+
+interface Env { DB: D1Database; DEMO_BUSINESS_SLUG: string; ALLOWED_ORIGIN: string; OWNER_USERNAME?: string; OWNER_PASSWORD_HASH?: string }
+interface Business { id: string; slug: string; name: string; description: string; timezone: string; currency: string; address: string; phone: string }
+interface Service { id: string; name: string; description: string; duration_min: number; price_minor: number }
+interface Appointment { id: string; reference: string; service_id: string; start_at: string; end_at: string; status: string; customer_contact: string; idempotency_key: string }
+
+const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' };
+const json = (value: unknown, status = 200, extra: HeadersInit = {}) => new Response(JSON.stringify(value), { status, headers: { ...headers, ...extra } });
+const bad = (error: string, status = 400) => json({ error }, status);
+
+async function readJson(request: Request): Promise<unknown> {
+  const reader = request.body?.getReader();
+  if (!reader) return null;
+  const decoder = new TextDecoder();
+  let text = '';
+  let bytes = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    bytes += value.byteLength;
+    if (bytes > 8192) { await reader.cancel(); throw new Error('payload-too-large'); }
+    text += decoder.decode(value, { stream: true });
+  }
+  try { return JSON.parse(text + decoder.decode()); } catch { return null; }
+}
+
+async function business(db: D1Database, slug: string): Promise<Business | null> {
+  return db.prepare('SELECT id,slug,name,description,timezone,currency,address,phone FROM businesses WHERE slug = ?').bind(slug).first<Business>();
+}
+
+async function service(db: D1Database, businessId: string, serviceId: string): Promise<Service | null> {
+  return db.prepare('SELECT id,name,description,duration_min,price_minor FROM services WHERE business_id = ? AND id = ? AND active = 1').bind(businessId, serviceId).first<Service>();
+}
+
+async function dayData(db: D1Database, b: Business, date: string) {
+  const day = localDay(date, b.timezone);
+  const [hours, resources, appointments] = await Promise.all([
+    db.prepare('SELECT weekday,open_min,close_min FROM working_hours WHERE business_id = ? AND weekday = ?').bind(b.id, day.weekday).first<{ weekday: number; open_min: number; close_min: number }>(),
+    db.prepare('SELECT id FROM resources WHERE business_id = ? AND active = 1 ORDER BY id').bind(b.id).all<{ id: string }>(),
+    db.prepare("SELECT resource_id,start_at,end_at FROM appointments WHERE business_id = ? AND status IN ('pending','confirmed') AND start_at < ? AND end_at > ?").bind(b.id, day.end, day.start).all<{ resource_id: string; start_at: string; end_at: string }>(),
+  ]);
+  return { hours, resourceIds: resources.results.map(r => r.id), appointments: appointments.results };
+}
+
+async function handle(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  if (url.pathname === '/api/health' && request.method === 'GET') return json({ ok: true });
+  const b = await business(env.DB, env.DEMO_BUSINESS_SLUG);
+  if (!b) return bad('Business is not configured', 503);
+
+  if (url.pathname === '/api/owner/login' && request.method === 'POST') {
+    const data = z.object({ username: z.string().min(1).max(100), password: z.string().min(1).max(200) }).safeParse(await readJson(request));
+    if (!data.success) return bad('Invalid login details');
+    return login(request, env, b.id, data.data.username, data.data.password);
+  }
+  if (url.pathname.startsWith('/api/owner/')) {
+    const ownedBusinessId = await ownerBusiness(request, env);
+    if (url.pathname === '/api/owner/session' && request.method === 'GET') return json({ authenticated: ownedBusinessId === b.id });
+    if (url.pathname === '/api/owner/logout' && request.method === 'POST') return logout(request, env);
+    if (ownedBusinessId !== b.id) return bad('Sign in required', 401);
+    if (url.pathname === '/api/owner/appointments' && request.method === 'GET') {
+      const rows = await env.DB.prepare(`SELECT a.id,a.reference,a.start_at,a.end_at,a.status,a.customer_name,a.customer_contact,a.customer_note,s.name AS service_name,r.name AS resource_name
+        FROM appointments a JOIN services s ON s.id = a.service_id JOIN resources r ON r.id = a.resource_id
+        WHERE a.business_id = ? ORDER BY a.start_at DESC LIMIT 100`).bind(b.id).all();
+      return json({ appointments: rows.results });
+    }
+    if (url.pathname === '/api/owner/summary' && request.method === 'GET') {
+      const row = await env.DB.prepare(`SELECT COUNT(*) AS total, SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) AS pending,
+        SUM(CASE WHEN status='confirmed' THEN 1 ELSE 0 END) AS confirmed,
+        SUM(CASE WHEN status='cancelled' THEN 1 ELSE 0 END) AS cancelled
+        FROM appointments WHERE business_id = ?`).bind(b.id).first();
+      return json({ summary: row });
+    }
+    const match = url.pathname.match(/^\/api\/owner\/appointments\/([0-9a-f-]{36})$/);
+    if (match && request.method === 'PATCH') {
+      const parsed = z.object({ status: z.enum(['confirmed', 'declined', 'cancelled', 'completed']) }).safeParse(await readJson(request));
+      if (!parsed.success) return bad('Invalid status');
+      const id = match[1];
+      const current = await env.DB.prepare('SELECT status FROM appointments WHERE id = ? AND business_id = ?').bind(id, b.id).first<{ status: string }>();
+      if (!current) return bad('Appointment not found', 404);
+      if (!canTransition(current.status as AppointmentStatus, parsed.data.status)) return bad('Invalid status transition', 409);
+      const updated = await env.DB.prepare('UPDATE appointments SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND business_id = ? AND status = ?').bind(parsed.data.status, id, b.id, current.status).run();
+      if (updated.meta.changes < 1) return bad('Appointment changed. Refresh and try again.', 409);
+      return json({ id, status: parsed.data.status });
+    }
+    return bad('Not found', 404);
+  }
+
+  if (url.pathname === '/api/business' && request.method === 'GET') {
+    const [services, hours] = await Promise.all([
+      env.DB.prepare('SELECT id,name,description,duration_min,price_minor FROM services WHERE business_id = ? AND active = 1 ORDER BY sort_order,name').bind(b.id).all<Service>(),
+      env.DB.prepare('SELECT weekday,open_min,close_min FROM working_hours WHERE business_id = ? ORDER BY weekday').bind(b.id).all(),
+    ]);
+    return json({ business: { slug: b.slug, name: b.name, description: b.description, timezone: b.timezone, currency: b.currency, address: b.address, phone: b.phone }, services: services.results, hours: hours.results });
+  }
+
+  if (url.pathname === '/api/availability' && request.method === 'GET') {
+    const serviceId = url.searchParams.get('serviceId') ?? '';
+    const date = url.searchParams.get('date') ?? '';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return bad('Invalid date');
+    try {
+      if (!withinBookingWindow(date, b.timezone)) return bad('Date must be within the next 60 days');
+      const s = await service(env.DB, b.id, serviceId);
+      if (!s) return bad('Service not found', 404);
+      const data = await dayData(env.DB, b, date);
+      return json({ date, serviceId, slots: availableSlots(date, b.timezone, s.duration_min, data.hours, data.resourceIds, data.appointments) });
+    } catch { return bad('Invalid date'); }
+  }
+
+  if (url.pathname === '/api/bookings' && request.method === 'POST') {
+    if (!await allowPublicBooking(request, env.DB)) return bad('Too many booking requests. Try again later.', 429);
+    const body = await readJson(request);
+    const parsed = bookingInput.safeParse(body);
+    if (!parsed.success) return bad('Please check the booking details');
+    const input = parsed.data;
+    const s = await service(env.DB, b.id, input.serviceId);
+    if (!s) return bad('Service not found', 404);
+    if (!withinBookingWindow(input.date, b.timezone)) return bad('Date must be within the next 60 days');
+    const data = await dayData(env.DB, b, input.date);
+    const interval = slotInterval(input.date, input.time, s.duration_min, b.timezone, data.hours);
+    if (!interval || Date.parse(interval.start_at) <= Date.now() + 30 * 60_000) return bad('This time is unavailable', 409);
+
+    const findExisting = () => env.DB.prepare('SELECT id,reference,service_id,start_at,end_at,status,customer_contact,idempotency_key FROM appointments WHERE business_id = ? AND idempotency_key = ?').bind(b.id, input.idempotencyKey).first<Appointment>();
+    const existing = await findExisting();
+    if (existing) return existing.service_id === s.id && existing.start_at === interval.start_at && existing.customer_contact === input.customerContact
+      ? json({ reference: existing.reference, status: existing.status }, 200) : bad('Idempotency key was used for another request', 409);
+
+    const id = crypto.randomUUID();
+    const reference = `MBF-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+    try {
+      await env.DB.prepare(`INSERT INTO appointments (id,reference,business_id,service_id,resource_id,customer_name,customer_contact,customer_note,start_at,end_at,idempotency_key)
+        SELECT ?,?,?,?,r.id,?,?,?,?,?,? FROM resources r
+        WHERE r.business_id = ? AND r.active = 1 AND NOT EXISTS (
+          SELECT 1 FROM appointments a WHERE a.resource_id = r.id AND a.status IN ('pending','confirmed') AND a.start_at < ? AND ? < a.end_at
+        ) ORDER BY r.id LIMIT 1`).bind(id, reference, b.id, s.id, input.customerName, input.customerContact, input.note, interval.start_at, interval.end_at, input.idempotencyKey, b.id, interval.end_at, interval.start_at).run();
+    } catch {
+      const repeat = await findExisting();
+      if (repeat && repeat.service_id === s.id && repeat.start_at === interval.start_at && repeat.customer_contact === input.customerContact) return json({ reference: repeat.reference, status: repeat.status });
+      return bad('This time is no longer available', 409);
+    }
+    const created = await findExisting();
+    if (!created) return bad('This time is no longer available', 409);
+    return json({ reference: created.reference, status: created.status }, 201);
+  }
+  return bad('Not found', 404);
+}
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const origin = request.headers.get('origin');
+    if (origin && origin !== env.ALLOWED_ORIGIN) return bad('Origin not allowed', 403);
+    const cors: HeadersInit = origin ? { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Methods': 'GET,POST,PATCH,OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' } : {};
+    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+    try {
+      const response = await handle(request, env);
+      Object.entries(cors).forEach(([key, value]) => response.headers.set(key, value));
+      return response;
+    } catch (error) {
+      if (error instanceof Error && error.message === 'payload-too-large') return bad('Request too large', 413);
+      return json({ error: 'Service temporarily unavailable' }, 503, cors);
+    }
+  },
+} satisfies ExportedHandler<Env>;

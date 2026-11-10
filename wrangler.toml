@@ -1,0 +1,14 @@
+name = "microbizflow-ai"
+pages_build_output_dir = "./dist/web"
+compatibility_date = "2026-11-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "microbizflow-local"
+database_id = "00000000-0000-0000-0000-000000000000"
+preview_database_id = "DB"
+migrations_dir = "db/migrations"
+
+[vars]
+DEMO_BUSINESS_SLUG = "harbour-cut"
+ALLOWED_ORIGIN = "http://127.0.0.1:8788"

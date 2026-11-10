@@ -1,0 +1,43 @@
+{
+  "name": "microbizflow-ai",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev:web": "vite --host 127.0.0.1",
+    "dev:api": "node scripts/wrangler.mjs dev --config wrangler.worker.toml --local --port 8787",
+    "dev:pages": "node scripts/wrangler.mjs pages dev dist/web --d1 DB=00000000-0000-0000-0000-000000000000 --port 8788",
+    "build": "tsc --noEmit && vite build",
+    "lint": "eslint web/src worker/src shared functions scripts vite.config.ts vitest.config.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:integration:local": "node scripts/smoke-booking.mjs",
+    "owner:setup:local": "node scripts/setup-owner.mjs",
+    "db:migrate:local": "node scripts/wrangler.mjs d1 migrations apply microbizflow-local --config wrangler.worker.toml --local",
+    "db:seed:local": "node scripts/wrangler.mjs d1 execute microbizflow-local --config wrangler.worker.toml --local --file=./db/seed.sql"
+  },
+  "dependencies": {
+    "@js-temporal/polyfill": "^0.5.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261110.1",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^10.14.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.19",
+    "typescript-eslint": "^8.72.2",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.7",
+    "vitest": "^4.0.0",
+    "wrangler": "^4.160.0"
+  },
+  "overrides": {
+    "minimatch": "^11.0.6"
+  }
+}

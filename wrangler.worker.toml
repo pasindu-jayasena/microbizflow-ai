@@ -1,0 +1,13 @@
+name = "microbizflow-api"
+main = "worker/src/index.ts"
+compatibility_date = "2026-11-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "microbizflow-local"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "db/migrations"
+
+[vars]
+DEMO_BUSINESS_SLUG = "harbour-cut"
+ALLOWED_ORIGIN = "http://127.0.0.1:5173"
