@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+
+const base = 'http://127.0.0.1:8788';
+const password = process.env.LOCAL_OWNER_PASSWORD;
+if (!password) throw new Error('Set LOCAL_OWNER_PASSWORD to the local owner password for this test.');
+const headers = { 'Content-Type': 'application/json' };
+const login = await fetch(`${base}/api/owner/login`, { method: 'POST', headers, body: JSON.stringify({ username: 'owner', password }) });
+assert.equal(login.status, 200);
+const cookie = login.headers.get('set-cookie')?.split(';')[0];
+assert.ok(cookie?.startsWith('mbf_session='));
+const owner = (path, init = {}) => fetch(`${base}${path}`, { ...init, headers: { ...headers, Cookie: cookie, ...init.headers } });
+
+assert.equal((await fetch(`${base}/api/owner/config`)).status, 401);
+const initial = await owner('/api/owner/config').then(response => response.json());
+assert.ok(initial.services.some(item => item.id === 'svc_cut'));
+assert.ok(initial.hours.length > 0);
+const name = `Fictional Test Service ${crypto.randomUUID().slice(0, 8)}`;
+const service = { name, description: 'Synthetic configuration test only', durationMin: 45, priceMinor: 10000, active: true };
+const invalid = await owner('/api/owner/services', { method: 'POST', body: JSON.stringify({ ...service, durationMin: 43 }) });
+assert.equal(invalid.status, 400);
+const created = await owner('/api/owner/services', { method: 'POST', body: JSON.stringify(service) });
+assert.equal(created.status, 201);
+const { id } = await created.json();
+const catalogue = await fetch(`${base}/api/business`).then(response => response.json());
+assert.ok(catalogue.services.some(item => item.id === id));
+const disabled = await owner(`/api/owner/services/${id}`, { method: 'PATCH', body: JSON.stringify({ ...service, active: false }) });
+assert.equal(disabled.status, 200);
+const after = await fetch(`${base}/api/business`).then(response => response.json());
+assert.ok(!after.services.some(item => item.id === id));
+const day = initial.hours[0];
+const invalidHours = await owner(`/api/owner/hours/${day.weekday}`, { method: 'PUT', body: JSON.stringify({ closed: false, openMin: 1020, closeMin: 540 }) });
+assert.equal(invalidHours.status, 400);
+const savedHours = await owner(`/api/owner/hours/${day.weekday}`, { method: 'PUT', body: JSON.stringify({ closed: false, openMin: day.open_min, closeMin: day.close_min }) });
+assert.equal(savedHours.status, 200);
+console.log('Local owner configuration test passed: authorization, validation, service visibility, and working-hours update.');

@@ -22,4 +22,9 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run db:migrate:local
       - run: npm run db:seed:local
+      - name: Configure a disposable local owner for browser tests
+        run: |
+          test_password=$(openssl rand -hex 20)
+          printf '%s' "$test_password" | npm run owner:setup:local
+          echo "LOCAL_OWNER_PASSWORD=$test_password" >> "$GITHUB_ENV"
       - run: npm run test:e2e

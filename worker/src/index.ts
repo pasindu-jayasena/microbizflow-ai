@@ -5,6 +5,7 @@ import { canTransition, type AppointmentStatus } from '../../shared/appointments
 import { Temporal } from '@js-temporal/polyfill';
 import { analyzeEnquiry, cloudflareProvider, type AiBinding } from './ai';
 import { approveNotification, deliverApproved, processEvent, processPendingEvents } from './workflows';
+import { hoursConfig, serviceConfig } from '../../shared/config';
 
 interface Env { DB: D1Database; DEMO_BUSINESS_SLUG: string; ALLOWED_ORIGIN: string; OWNER_USERNAME?: string; OWNER_PASSWORD_HASH?: string; AI?: AiBinding; AI_MODEL?: string }
 interface Business { id: string; slug: string; name: string; description: string; timezone: string; currency: string; address: string; phone: string }
@@ -65,6 +66,46 @@ async function handle(request: Request, env: Env): Promise<Response> {
     if (url.pathname === '/api/owner/session' && request.method === 'GET') return json({ authenticated: ownedBusinessId === b.id });
     if (url.pathname === '/api/owner/logout' && request.method === 'POST') return logout(request, env);
     if (ownedBusinessId !== b.id) return bad('Sign in required', 401);
+    if (url.pathname === '/api/owner/config' && request.method === 'GET') {
+      const [services, hours] = await Promise.all([
+        env.DB.prepare('SELECT id,name,description,duration_min,price_minor,active FROM services WHERE business_id=? ORDER BY sort_order,name').bind(b.id).all(),
+        env.DB.prepare('SELECT weekday,open_min,close_min FROM working_hours WHERE business_id=? ORDER BY weekday').bind(b.id).all(),
+      ]);
+      return json({ services: services.results, hours: hours.results });
+    }
+    if (url.pathname === '/api/owner/services' && request.method === 'POST') {
+      const parsed = serviceConfig.safeParse(await readJson(request));
+      if (!parsed.success) return bad('Invalid service details');
+      const value = parsed.data;
+      const id = crypto.randomUUID();
+      try {
+        await env.DB.prepare('INSERT INTO services(id,business_id,name,description,duration_min,price_minor,active) VALUES(?,?,?,?,?,?,?)')
+          .bind(id,b.id,value.name,value.description,value.durationMin,value.priceMinor,Number(value.active)).run();
+      } catch { return bad('A service with that name already exists', 409); }
+      return json({ id }, 201);
+    }
+    const serviceMatch = url.pathname.match(/^\/api\/owner\/services\/([a-zA-Z0-9_-]{1,64})$/);
+    if (serviceMatch && request.method === 'PATCH') {
+      const parsed = serviceConfig.safeParse(await readJson(request));
+      if (!parsed.success) return bad('Invalid service details');
+      const value = parsed.data;
+      try {
+        const result = await env.DB.prepare('UPDATE services SET name=?,description=?,duration_min=?,price_minor=?,active=? WHERE id=? AND business_id=?')
+          .bind(value.name,value.description,value.durationMin,value.priceMinor,Number(value.active),serviceMatch[1],b.id).run();
+        if (result.meta.changes < 1) return bad('Service not found', 404);
+      } catch { return bad('A service with that name already exists', 409); }
+      return json({ id: serviceMatch[1] });
+    }
+    const hoursMatch = url.pathname.match(/^\/api\/owner\/hours\/([0-6])$/);
+    if (hoursMatch && request.method === 'PUT') {
+      const parsed = hoursConfig.safeParse(await readJson(request));
+      if (!parsed.success) return bad('Invalid working hours');
+      const weekday = Number(hoursMatch[1]);
+      if (parsed.data.closed) await env.DB.prepare('DELETE FROM working_hours WHERE business_id=? AND weekday=?').bind(b.id,weekday).run();
+      else await env.DB.prepare('INSERT INTO working_hours(business_id,weekday,open_min,close_min) VALUES(?,?,?,?) ON CONFLICT(business_id,weekday) DO UPDATE SET open_min=excluded.open_min,close_min=excluded.close_min')
+        .bind(b.id,weekday,parsed.data.openMin,parsed.data.closeMin).run();
+      return json({ weekday });
+    }
     if (url.pathname === '/api/owner/appointments' && request.method === 'GET') {
       const rows = await env.DB.prepare(`SELECT a.id,a.reference,a.start_at,a.end_at,a.status,a.customer_name,a.customer_contact,a.customer_note,s.name AS service_name,r.name AS resource_name
         FROM appointments a JOIN services s ON s.id = a.service_id JOIN resources r ON r.id = a.resource_id
