@@ -240,6 +240,23 @@ async function handle(request: Request, env: Env): Promise<Response> {
     return json(analysis);
   }
 
+  if ((url.pathname === '/api/bookings/status' || url.pathname === '/api/bookings/cancel') && request.method === 'POST') {
+    const kind = url.pathname.endsWith('/cancel') ? 'cancel' : 'lookup';
+    if (!await allowPublicBooking(request, env.DB, kind, kind === 'cancel' ? 5 : 10)) return bad('Too many requests. Try again later.', 429);
+    const parsed = z.object({ reference: z.string().regex(/^MBF-[A-F0-9]{8}$/), cancellationCode: z.uuid() }).safeParse(await readJson(request));
+    if (!parsed.success) return bad('Enter a valid reference and private code');
+    const item = await env.DB.prepare('SELECT id,reference,status,start_at,idempotency_key FROM appointments WHERE business_id=? AND reference=? AND idempotency_key=?')
+      .bind(b.id,parsed.data.reference,parsed.data.cancellationCode).first<{ id: string; reference: string; status: AppointmentStatus; start_at: string; idempotency_key: string }>();
+    if (!item) return bad('Booking not found for these details', 404);
+    if (kind === 'lookup') return json({ reference: item.reference, status: item.status, startAt: item.start_at });
+    if (!canTransition(item.status, 'cancelled') || Date.parse(item.start_at) <= Date.now() + 30 * 60_000) return bad('This booking can no longer be cancelled online', 409);
+    const changed = await env.DB.prepare("UPDATE appointments SET status='cancelled',updated_at=CURRENT_TIMESTAMP WHERE id=? AND business_id=? AND status=?")
+      .bind(item.id,b.id,item.status).run();
+    if (changed.meta.changes < 1) return bad('Booking changed. Check its latest status.', 409);
+    try { await processEvent(env.DB,b.id,`${item.id}:status:cancelled`); } catch { /* Durable event remains for manual retry. */ }
+    return json({ reference: item.reference, status: 'cancelled' });
+  }
+
   if (url.pathname === '/api/availability' && request.method === 'GET') {
     const serviceId = url.searchParams.get('serviceId') ?? '';
     const date = url.searchParams.get('date') ?? '';
@@ -269,7 +286,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
     const findExisting = () => env.DB.prepare('SELECT id,reference,service_id,start_at,end_at,status,customer_contact,idempotency_key FROM appointments WHERE business_id = ? AND idempotency_key = ?').bind(b.id, input.idempotencyKey).first<Appointment>();
     const existing = await findExisting();
     if (existing) return existing.service_id === s.id && existing.start_at === interval.start_at && existing.customer_contact === input.customerContact
-      ? json({ reference: existing.reference, status: existing.status }, 200) : bad('Idempotency key was used for another request', 409);
+      ? json({ reference: existing.reference, status: existing.status, cancellationCode: existing.idempotency_key }, 200) : bad('Idempotency key was used for another request', 409);
 
     const id = crypto.randomUUID();
     const reference = `MBF-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
@@ -281,13 +298,13 @@ async function handle(request: Request, env: Env): Promise<Response> {
         ) ORDER BY r.id LIMIT 1`).bind(id, reference, b.id, s.id, input.customerName, input.customerContact, input.note, interval.start_at, interval.end_at, input.idempotencyKey, b.id, interval.end_at, interval.start_at).run();
     } catch {
       const repeat = await findExisting();
-      if (repeat && repeat.service_id === s.id && repeat.start_at === interval.start_at && repeat.customer_contact === input.customerContact) return json({ reference: repeat.reference, status: repeat.status });
+      if (repeat && repeat.service_id === s.id && repeat.start_at === interval.start_at && repeat.customer_contact === input.customerContact) return json({ reference: repeat.reference, status: repeat.status, cancellationCode: repeat.idempotency_key });
       return bad('This time is no longer available', 409);
     }
     const created = await findExisting();
     if (!created) return bad('This time is no longer available', 409);
     try { await processEvent(env.DB, b.id, `${created.id}:created`); } catch { /* Durable event remains for manual retry. */ }
-    return json({ reference: created.reference, status: created.status }, 201);
+    return json({ reference: created.reference, status: created.status, cancellationCode: created.idempotency_key }, 201);
   }
   return bad('Not found', 404);
 }

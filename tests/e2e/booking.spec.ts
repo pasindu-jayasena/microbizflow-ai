@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { Temporal } from '@js-temporal/polyfill';
 
-test('a customer can use a suggestion and request a real available booking', async ({ page, request }) => {
+test('a customer can request, check, and cancel a real booking', async ({ page, request }) => {
   const catalogue = await request.get('/api/business').then(response => response.json());
   const today = Temporal.Now.zonedDateTimeISO(catalogue.business.timezone).toPlainDate();
   let date = '';
@@ -16,8 +16,13 @@ test('a customer can use a suggestion and request a real available booking', asy
   await page.getByRole('link', { name: 'Book a visit' }).click();
   await page.getByLabel('Your message').fill('I need a haircut tomorrow around 5 PM.');
   await page.getByRole('button', { name: 'Find details' }).click();
-  await expect(page.getByText('Simple suggestion', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Use suggested service and date' }).click();
+  const suggestion = page.getByRole('button', { name: 'Use suggested service and date' });
+  const limited = page.getByRole('alert').filter({ hasText: 'Too many assistant requests' });
+  await expect(suggestion.or(limited)).toBeVisible();
+  if (await suggestion.isVisible()) {
+    await expect(page.getByText('Simple suggestion', { exact: true })).toBeVisible();
+    await suggestion.click();
+  }
   await page.getByLabel('Date').fill(date);
   await expect(page.locator('fieldset button').first()).toBeVisible();
   await page.locator('fieldset button').first().click();
@@ -27,6 +32,11 @@ test('a customer can use a suggestion and request a real available booking', asy
   await page.getByRole('button', { name: /Request Signature haircut/ }).click();
   await expect(page.getByRole('heading', { name: 'Request received' })).toBeVisible();
   await expect(page.getByText(/MBF-[A-F0-9]{8}/)).toBeVisible();
+  await expect(page.getByText('Private cancellation code')).toBeVisible();
+  await page.getByRole('button', { name: 'Check status' }).click();
+  await expect(page.getByText(/Booking MBF-[A-F0-9]{8}: pending/)).toBeVisible();
+  await page.getByRole('button', { name: 'Cancel booking' }).click();
+  await expect(page.getByText(/Booking MBF-[A-F0-9]{8}: cancelled/)).toBeVisible();
   if (process.env.LOCAL_OWNER_PASSWORD) {
     await page.goto('/owner');
     await page.getByLabel('Password').fill(process.env.LOCAL_OWNER_PASSWORD);

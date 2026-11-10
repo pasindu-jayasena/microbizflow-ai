@@ -20,4 +20,6 @@ Public routes expose only publishable business and availability data. Owner rout
 
 ## Decisions pending implementation
 
-Remaining design work includes verified customer ownership and cancellation, retention/deletion controls, broader language evaluation, secure webhooks, scheduled reminders, and external integration adapters. The current owner model is a single local account per deployment; multi-tenant owner management is future work. Cloudflare free-tier limits and applicable package licenses must be rechecked before deployment.
+Customer lookup and cancellation use the booking reference plus a private random UUID shown at submission, sent in POST bodies and matched within the business. This is a bearer code: anyone who obtains both values can act on the booking. Stronger verified customer accounts and recovery remain future work. Cancellation is allowed for pending or confirmed bookings until 30 minutes before the visit; the database records the status change and audit event.
+
+Remaining design work includes stronger customer identity, retention/deletion controls, broader language evaluation, secure webhooks, scheduled reminders, and external integration adapters. The current owner model is a single local account per deployment; multi-tenant owner management is future work. Cloudflare free-tier limits and applicable package licenses must be rechecked before deployment.

@@ -11,10 +11,11 @@
 - Playwright browser tests cover a real customer booking and owner route protection. Commit `05ab274feb10061483ac42882adc81293b34c3ae` was pushed and its [Checks run](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/42899024980) passed.
 - Owner service and working-hours configuration was pushed in commit `b753e6ef7a67a3f2184726af44cb8d4d4140c6d7`; its [Checks run](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/42900199166) passed.
 - Customer records, protected search, appointment history, and private notes were pushed in commit `eefba7d661dd51a2dab130aada78a615443bea0c`; its [Checks run](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/42901626076) passed.
-- Owner booking and workflow analytics are implemented locally and under test; their commit and push are pending.
+- Owner booking and workflow analytics were pushed in commit `7d0f6e382cd89954b41095d6a737eb0b1169ee0a`; its [Checks run](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/42902246825) passed.
+- Customer status lookup and cancellation with private booking codes are implemented and under local test; their commit and push are pending.
 - Wrangler confirms a Cloudflare account associated with `pasindujayasena.biz@gmail.com`. A read-only subscription lookup returned HTTP 403 because the OAuth token lacks Billing Read. The user confirmed Workers Free in the dashboard and reported canceling R2 Paid, with cancellation still pending billing verification. No Cloudflare resource has been provisioned or deployed; deployment requires a readiness report and explicit approval.
 - No public demo, live URL, or real message delivery is claimed.
 
 ## Next work
 
-Finish and publish the analytics feature separately. Then add remaining owner and customer capabilities, review free-tier and billing status, and prepare a deployment readiness report. Provisioning and deployment await explicit user approval.
+Finish and publish customer cancellation separately. Then add remaining owner capabilities, review free-tier and billing status, and prepare a deployment readiness report. Provisioning and deployment await explicit user approval.
