@@ -1,6 +1,6 @@
 # Testing
 
-Run `npm run typecheck`, `npm run lint`, `npm test`, `python -m unittest discover -s tests`, and `npm run build` from the repository root. With `npm run dev:pages` running against migrated and seeded local D1, run `npm run test:integration:local` and `npm run test:ai:local`. Set `LOCAL_OWNER_PASSWORD` before `npm run test:workflow:local`.
+Run `npm run typecheck`, `npm run lint`, `npm test`, `python -m unittest discover -s tests`, and `npm run build` from the repository root. With `npm run dev:pages` running against migrated and seeded local D1, run `npm run test:integration:local`, `npm run test:ai:local`, and `npm run test:e2e`. Set `LOCAL_OWNER_PASSWORD` before `npm run test:workflow:local`. Playwright uses installed Chrome on Windows; on Linux install Chromium with `npx playwright install chromium` first. If port 8788 is free, Playwright starts Pages automatically.
 
 The current unit suite covers working hours, time-zone conversion, two-resource availability, adjacency, status transitions, and owner password verification. Python tests apply all migrations to SQLite and check overlap triggers, idempotency constraints, and audit records. The local HTTP smoke test sends three simultaneous requests for the same slot, expects two reservations and one conflict, and checks idempotent replay. Manual local checks covered owner login, private list access, valid and invalid transitions, logout, and the Pages Function route.
 

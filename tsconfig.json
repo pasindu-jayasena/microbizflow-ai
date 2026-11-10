@@ -11,5 +11,5 @@
     "skipLibCheck": true,
     "types": ["vite/client", "@cloudflare/workers-types", "vitest/globals"]
   },
-  "include": ["web/src", "worker/src", "shared", "functions", "vite.config.ts", "vitest.config.ts"]
+  "include": ["web/src", "worker/src", "shared", "functions", "tests/e2e", "vite.config.ts", "vitest.config.ts", "playwright.config.ts"]
 }

@@ -8,12 +8,13 @@
     "dev:api": "node scripts/wrangler.mjs dev --config wrangler.worker.toml --local --port 8787",
     "dev:pages": "node scripts/wrangler.mjs pages dev dist/web --d1 DB=00000000-0000-0000-0000-000000000000 --port 8788",
     "build": "tsc --noEmit && vite build",
-    "lint": "eslint web/src worker/src shared functions scripts vite.config.ts vitest.config.ts",
+    "lint": "eslint web/src worker/src shared functions scripts tests/e2e vite.config.ts vitest.config.ts playwright.config.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:integration:local": "node scripts/smoke-booking.mjs",
     "test:ai:local": "node scripts/smoke-ai.mjs",
     "test:workflow:local": "node scripts/smoke-workflow.mjs",
+    "test:e2e": "playwright test",
     "owner:setup:local": "node scripts/setup-owner.mjs",
     "db:migrate:local": "node scripts/wrangler.mjs d1 migrations apply microbizflow-local --config wrangler.worker.toml --local",
     "db:seed:local": "node scripts/wrangler.mjs d1 execute microbizflow-local --config wrangler.worker.toml --local --file=./db/seed.sql"
@@ -25,6 +26,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@cloudflare/workers-types": "^5.20261110.1",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
