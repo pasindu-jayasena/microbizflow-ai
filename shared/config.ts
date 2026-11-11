@@ -16,3 +16,10 @@ export const hoursConfig = z.discriminatedUnion('closed', [
     closeMin: z.number().int().min(1).max(1440).refine(value => value % 15 === 0),
   }).refine(value => value.closeMin > value.openMin, 'Closing time must follow opening time'),
 ]);
+
+export const businessProfile = z.object({
+  name: z.string().trim().min(2).max(100),
+  description: z.string().trim().min(2).max(500),
+  address: z.string().trim().min(2).max(200),
+  phone: z.string().trim().min(5).max(40),
+});

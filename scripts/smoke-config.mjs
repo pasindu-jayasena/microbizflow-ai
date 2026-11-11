@@ -32,4 +32,16 @@ const invalidHours = await owner(`/api/owner/hours/${day.weekday}`, { method: 'P
 assert.equal(invalidHours.status, 400);
 const savedHours = await owner(`/api/owner/hours/${day.weekday}`, { method: 'PUT', body: JSON.stringify({ closed: false, openMin: day.open_min, closeMin: day.close_min }) });
 assert.equal(savedHours.status, 200);
-console.log('Local owner configuration test passed: authorization, validation, service visibility, and working-hours update.');
+const profile = { name: initial.business.name, description: initial.business.description, address: initial.business.address, phone: initial.business.phone };
+assert.equal((await fetch(`${base}/api/owner/profile`, { method: 'PATCH', headers, body: JSON.stringify(profile) })).status, 401);
+assert.equal((await owner('/api/owner/profile', { method: 'PATCH', body: JSON.stringify({ ...profile, name: '' }) })).status, 400);
+try {
+  const changed = await owner('/api/owner/profile', { method: 'PATCH', body: JSON.stringify({ ...profile, name: 'Fictional Profile Test' }) });
+  assert.equal(changed.status, 200);
+  const publicProfile = await fetch(`${base}/api/business`).then(response => response.json());
+  assert.equal(publicProfile.business.name, 'Fictional Profile Test');
+} finally {
+  const restored = await owner('/api/owner/profile', { method: 'PATCH', body: JSON.stringify(profile) });
+  assert.equal(restored.status, 200);
+}
+console.log('Local owner configuration test passed: authorization, validation, profile, service visibility, and working hours.');

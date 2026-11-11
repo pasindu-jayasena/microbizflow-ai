@@ -112,7 +112,7 @@ export function App() {
   return <div className="min-h-screen bg-cream text-ink">
     <header className="border-b border-ink/10 bg-cream/95">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
-        <a className="text-lg font-bold tracking-tight" href="#top">HARBOUR<span className="text-pine">CUT</span><span className="ml-2 align-top text-[10px] font-medium tracking-[.2em] text-slate-500">STUDIO</span></a>
+        <a className="text-lg font-bold tracking-tight text-pine" href="#top">{catalogue.business.name}</a>
         <a className="rounded-full border border-pine px-5 py-2 text-sm font-semibold text-pine transition hover:bg-mint focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine" href="#booking">Book a visit</a>
       </div>
     </header>
@@ -160,6 +160,6 @@ export function App() {
       </section>
       <BookingStatus booking={result} timezone={catalogue.business.timezone} />
     </main>
-    <footer className="bg-ink px-5 py-8 text-center text-sm text-white/70"><p>Harbour Cut Studio is a fictional MicroBizFlow AI demonstration business.</p><p className="mt-1">No real messages are sent from this site. <a className="underline underline-offset-4" href="/owner">Owner sign in</a></p></footer>
+    <footer className="bg-ink px-5 py-8 text-center text-sm text-white/70"><p>{catalogue.business.name} is a fictional MicroBizFlow AI demonstration business.</p><p className="mt-1">No real messages are sent from this site. <a className="underline underline-offset-4" href="/owner">Owner sign in</a></p></footer>
   </div>;
 }

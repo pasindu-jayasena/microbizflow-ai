@@ -5,7 +5,7 @@ import { canTransition, type AppointmentStatus } from '../../shared/appointments
 import { Temporal } from '@js-temporal/polyfill';
 import { analyzeEnquiry, cloudflareProvider, type AiBinding } from './ai';
 import { approveNotification, deliverApproved, processEvent, processPendingEvents } from './workflows';
-import { hoursConfig, serviceConfig } from '../../shared/config';
+import { businessProfile, hoursConfig, serviceConfig } from '../../shared/config';
 
 interface Env { DB: D1Database; DEMO_BUSINESS_SLUG: string; ALLOWED_ORIGIN: string; OWNER_USERNAME?: string; OWNER_PASSWORD_HASH?: string; AI?: AiBinding; AI_MODEL?: string }
 interface Business { id: string; slug: string; name: string; description: string; timezone: string; currency: string; address: string; phone: string }
@@ -71,7 +71,15 @@ async function handle(request: Request, env: Env): Promise<Response> {
         env.DB.prepare('SELECT id,name,description,duration_min,price_minor,active FROM services WHERE business_id=? ORDER BY sort_order,name').bind(b.id).all(),
         env.DB.prepare('SELECT weekday,open_min,close_min FROM working_hours WHERE business_id=? ORDER BY weekday').bind(b.id).all(),
       ]);
-      return json({ services: services.results, hours: hours.results });
+      return json({ business: b, services: services.results, hours: hours.results });
+    }
+    if (url.pathname === '/api/owner/profile' && request.method === 'PATCH') {
+      const parsed = businessProfile.safeParse(await readJson(request));
+      if (!parsed.success) return bad('Invalid business profile');
+      const value = parsed.data;
+      await env.DB.prepare('UPDATE businesses SET name=?,description=?,address=?,phone=? WHERE id=?')
+        .bind(value.name,value.description,value.address,value.phone,b.id).run();
+      return json({ saved: true });
     }
     if (url.pathname === '/api/owner/customers' && request.method === 'GET') {
       const query = (url.searchParams.get('q') ?? '').trim();

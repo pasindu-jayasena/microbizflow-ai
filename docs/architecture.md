@@ -6,6 +6,8 @@ The public web app presents business information and submits booking requests. T
 
 The first business is a fictional two-chair barbershop in `Asia/Colombo`. Business time zone, services, working hours, and bookable resources are data, not shared-code constants. This permits another appointment-based business to use the booking engine.
 
+Owners can edit public name, description, address, and phone through a protected route. Time zone and currency remain fixed for the initial business because changing either while appointments exist needs an explicit migration plan.
+
 ## Booking correctness
 
 Appointments reserve a specific resource for a time interval. Pending and confirmed bookings occupy capacity. The database rejects overlapping reservations on the same resource with insert/update triggers. A single `INSERT ... SELECT` chooses the first free active resource; a racing request can use the other chair or receive a conflict. Availability shown to users is advisory, and submission rechecks it atomically. SQL constraints and explicit status transition rules protect correctness when requests race. UTC ISO timestamps are stored for instants; display and working-hours calculations use the business's IANA time zone.

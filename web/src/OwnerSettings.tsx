@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 type Service = { id: string; name: string; description: string; duration_min: number; price_minor: number; active: number };
 type Hours = { weekday: number; open_min: number; close_min: number };
+type Profile = { name: string; description: string; address: string; phone: string; currency: string; timezone: string };
 const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const minutes = (value: string) => Number(value.slice(0, 2)) * 60 + Number(value.slice(3));
 const time = (value: number) => `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`;
@@ -11,6 +12,24 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const body = await response.json() as T & { error?: string };
   if (!response.ok) throw new Error(body.error || 'Could not save changes');
   return body;
+}
+
+function ProfileEditor({ profile, saved }: { profile: Profile; saved: () => Promise<void> }) {
+  const [name, setName] = useState(profile.name);
+  const [description, setDescription] = useState(profile.description);
+  const [address, setAddress] = useState(profile.address);
+  const [phone, setPhone] = useState(profile.phone);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setBusy(true); setMessage('');
+    try {
+      await api('/api/owner/profile', { method: 'PATCH', body: JSON.stringify({ name, description, address, phone }) });
+      await saved(); setMessage('Business profile saved.');
+    } catch (cause) { setMessage(cause instanceof Error ? cause.message : 'Could not save profile.'); }
+    finally { setBusy(false); }
+  }
+  return <form className="rounded-2xl bg-white p-5" onSubmit={submit}><div className="grid gap-4 sm:grid-cols-2"><label className="text-sm font-medium">Business name<input className="field mt-2" required minLength={2} maxLength={100} value={name} onChange={event => setName(event.target.value)} /></label><label className="text-sm font-medium">Business phone<input className="field mt-2" required minLength={5} maxLength={40} value={phone} onChange={event => setPhone(event.target.value)} /></label><label className="text-sm font-medium sm:col-span-2">Public description<textarea className="field mt-2 min-h-20" required minLength={2} maxLength={500} value={description} onChange={event => setDescription(event.target.value)} /></label><label className="text-sm font-medium sm:col-span-2">Business address<input className="field mt-2" required minLength={2} maxLength={200} value={address} onChange={event => setAddress(event.target.value)} /></label></div><p className="mt-4 text-xs text-slate-500">Time zone: {profile.timezone} · Currency: {profile.currency}. Changing either requires a separate migration for existing bookings.</p><div className="mt-4 flex flex-wrap items-center gap-4"><button type="submit" disabled={busy} className="rounded-full bg-pine px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy ? 'Saving…' : 'Save business profile'}</button>{message && <span role="status" className="text-sm">{message}</span>}</div></form>;
 }
 
 function ServiceEditor({ item, currency, saved }: { item?: Service; currency: string; saved: () => Promise<void> }) {
@@ -78,22 +97,21 @@ function HoursEditor({ weekday, value, saved }: { weekday: number; value?: Hours
 export function OwnerSettings() {
   const [services, setServices] = useState<Service[]>([]);
   const [hours, setHours] = useState<Hours[]>([]);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [currency, setCurrency] = useState('LKR');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   async function refresh() {
-    const [data, catalogue] = await Promise.all([
-      api<{ services: Service[]; hours: Hours[] }>('/api/owner/config'),
-      api<{ business: { currency: string } }>('/api/business'),
-    ]);
+    const data = await api<{ business: Profile; services: Service[]; hours: Hours[] }>('/api/owner/config');
     setServices(data.services); setHours(data.hours);
-    setCurrency(catalogue.business.currency);
+    setProfile(data.business); setCurrency(data.business.currency);
   }
   useEffect(() => { refresh().catch(cause => setError(cause instanceof Error ? cause.message : 'Could not load settings.')).finally(() => setLoading(false)); }, []);
 
   return <section className="mt-12 space-y-10" aria-labelledby="settings-title">
     <div><p className="eyebrow">Business settings</p><h2 id="settings-title" className="mt-2 text-2xl font-semibold">Services and working hours</h2><p className="mt-2 text-sm text-slate-600">Changes to services and hours affect new requests. Existing appointments keep their recorded time. Review current bookings before changing service details.</p></div>
     {loading ? <p role="status">Loading settings…</p> : error ? <p role="alert" className="text-red-700">{error}</p> : <>
+      {profile && <div><h3 className="mb-4 text-xl font-semibold">Business profile</h3><ProfileEditor profile={profile} saved={refresh} /></div>}
       <div><h3 className="mb-4 text-xl font-semibold">Services</h3><div className="grid gap-4 lg:grid-cols-2">{services.map(item => <ServiceEditor key={item.id} item={item} currency={currency} saved={refresh} />)}<ServiceEditor currency={currency} saved={refresh} /></div></div>
       <div><h3 className="mb-4 text-xl font-semibold">Working hours</h3><div className="rounded-2xl bg-white px-5">{days.map((_, weekday) => <HoursEditor key={weekday} weekday={weekday} value={hours.find(item => item.weekday === weekday)} saved={refresh} />)}</div></div>
     </>}
