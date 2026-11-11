@@ -1,0 +1,19 @@
+name = "microbizflow-api"
+main = "worker/src/index.ts"
+compatibility_date = "2026-11-01"
+workers_dev = false
+preview_urls = false
+
+[triggers]
+crons = ["0 * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "microbizflow-demo"
+database_id = "8999f517-eabe-4923-a647-5fcaa6d85017"
+migrations_dir = "db/migrations"
+
+[vars]
+DEMO_BUSINESS_SLUG = "harbour-cut"
+DEMO_MODE = "true"
+ALLOWED_ORIGIN = "https://microbizflow-ai.pages.dev"

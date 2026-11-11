@@ -1,6 +1,7 @@
 import { bookingInput, availableSlots, localDay, slotInterval, withinBookingWindow } from '../../shared/booking';
 import { z } from 'zod';
 import { allowPublicBooking, login, logout, ownerBusiness } from './auth';
+import { allowedRequestOrigin } from './origin';
 import { canTransition, type AppointmentStatus } from '../../shared/appointments';
 import { Temporal } from '@js-temporal/polyfill';
 import { analyzeEnquiry, cloudflareProvider, type AiBinding } from './ai';
@@ -428,7 +429,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const origin = request.headers.get('origin');
-    if (origin && origin !== env.ALLOWED_ORIGIN) return bad('Origin not allowed', 403);
+    if (!allowedRequestOrigin(request, env.ALLOWED_ORIGIN)) return bad('Origin not allowed', 403);
     const cors: HeadersInit = origin ? { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' } : {};
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     try {

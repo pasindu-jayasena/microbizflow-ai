@@ -75,7 +75,7 @@ export function checkDeploymentConfig(pagesSource, workerSource) {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   try {
-    const result = checkDeploymentConfig(readFileSync('wrangler.toml', 'utf8'), readFileSync('wrangler.worker.toml', 'utf8'));
+    const result = checkDeploymentConfig(readFileSync('wrangler.toml', 'utf8'), readFileSync('wrangler.worker.production.toml', 'utf8'));
     console.log(`Deployment config ready: ${result.project}, ${result.database}, ${result.origin}`);
   } catch (error) {
     console.error(`Deployment config blocked: ${error.message}`);
