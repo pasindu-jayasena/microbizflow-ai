@@ -15,6 +15,12 @@ export function OwnerPreview() {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('');
   const [notice, setNotice] = useState('');
+  const [automationStep, setAutomationStep] = useState(0);
+  const automationStages = [
+    { label: 'Suggestion prepared', detail: 'The no-key assistant finds a haircut request and suggests a service. The visitor chooses an available slot.' },
+    { label: 'Owner review', detail: 'A pending request appears for the studio owner. Only the owner can confirm it or approve a customer draft.' },
+    { label: 'Mock delivery recorded', detail: 'The approved draft is recorded in a mock outbox. No email or SMS is sent from the demo.' },
+  ];
   const visible = appointments.filter(item => (!filter || item.status === filter)
     && (!query || (item.reference + ' ' + item.service).toLowerCase().includes(query.toLowerCase().trim())));
   const count = (status: Status) => appointments.filter(item => item.status === status).length;
@@ -38,6 +44,22 @@ export function OwnerPreview() {
       <div className="mt-8 rounded-2xl border border-emerald-100 bg-mint p-5 text-sm leading-6 text-pine">
         The real owner dashboard requires sign in. Its appointments, customers, settings, and actions are separate from this preview.
       </div>
+      <section id="ai-automation-preview" className="mt-8 overflow-hidden rounded-[2rem] bg-ink p-6 text-white sm:p-8" aria-labelledby="preview-automation-heading">
+        <div className="grid gap-7 lg:grid-cols-[.85fr_1.15fr] lg:items-center">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[.23em] text-emerald-200">Fictional workflow preview</p>
+            <h2 id="preview-automation-heading" className="mt-3 text-3xl font-semibold leading-tight sm:text-4xl">AI & automation, with owner approval.</h2>
+            <p className="mt-4 text-sm leading-6 text-white/75">Explore how a salon enquiry becomes a booking suggestion and an owner-reviewed customer draft. The public demo uses the no-key assistant; an external AI model and real messaging are not connected.</p>
+            <button type="button" className="mt-6 rounded-full bg-white px-5 py-3 text-sm font-semibold text-pine transition hover:bg-mint" onClick={() => setAutomationStep(current => (current + 1) % automationStages.length)}>{automationStep === automationStages.length - 1 ? 'Replay sample workflow' : 'Next sample step'}</button>
+          </div>
+          <div className="rounded-2xl bg-white p-5 text-ink sm:p-6">
+            <p className="text-xs font-bold uppercase tracking-wide text-pine">Illustrative salon request</p>
+            <p className="mt-2 text-lg font-medium">“I would like a haircut this week.”</p>
+            <ol className="mt-5 space-y-2">{automationStages.map((stage, index) => <li key={stage.label} className={index === automationStep ? 'rounded-xl border border-pine/30 bg-mint p-4' : 'rounded-xl border border-slate-200 p-4 opacity-65'} aria-current={index === automationStep ? 'step' : undefined}><div className="flex items-center gap-3"><span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-pine text-xs font-bold text-white">{index + 1}</span><span className="text-sm font-semibold">{stage.label}</span></div>{index === automationStep && <p className="mt-2 pl-10 text-sm leading-6 text-slate-600">{stage.detail}</p>}</li>)}</ol>
+            <p className="mt-4 text-xs text-slate-500">Preview only. No customer records are read and no message is sent.</p>
+          </div>
+        </div>
+      </section>
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{[
         ['Sample requests', appointments.length], ['Pending', count('pending')], ['Confirmed', count('confirmed')], ['Cancelled', count('cancelled')],
       ].map(([label, value]) => <div key={label} className="rounded-2xl bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">{label}</p><p className="mt-2 text-3xl font-bold text-pine">{value}</p></div>)}</div>
