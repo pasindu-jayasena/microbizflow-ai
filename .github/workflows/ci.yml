@@ -19,7 +19,7 @@ jobs:
       - run: npm test
       - run: python -m unittest discover -s tests
       - run: npm run build
-      - run: npx playwright install --with-deps chromium
+      - run: google-chrome --version
       - run: npm run db:migrate:local
       - run: npm run db:seed:local
       - name: Configure a disposable local owner for browser tests

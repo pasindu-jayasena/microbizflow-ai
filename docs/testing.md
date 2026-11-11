@@ -38,4 +38,4 @@ Latest measured local results on 2026-11-11: TypeScript and ESLint passed; Vites
 
 Scheduled workflow recovery is implemented and locally tested but has not been deployed. Workflow tests cover database event creation, customer draft approval, mock delivery failure and retry. The AI suite covers invalid model output, provider failures, timeouts, and limited retry behavior. The deployed demo also needs an end-to-end booking check against its public HTTPS URL.
 
-CI uses the `ubuntu-24.04` runner to keep the browser dependency installation on a stable, explicit OS image while GitHub migrates `ubuntu-latest` to 26.04. An earlier CI run on 26.04 failed because its runner could not resolve Ubuntu package hosts; the change needs a fresh successful GitHub run before CI can be called green.
+CI uses the `ubuntu-24.04` runner and its preinstalled Google Chrome for browser tests while GitHub migrates `ubuntu-latest` to 26.04. This avoids a separate `apt` dependency installation after earlier runners could not resolve Ubuntu package hosts. A fresh successful GitHub run is still required before CI can be called green.

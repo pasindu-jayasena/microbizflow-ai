@@ -6,7 +6,7 @@ export default defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:8788',
     browserName: 'chromium',
-    channel: process.platform === 'win32' ? 'chrome' : undefined,
+    channel: process.env.CI || process.platform === 'win32' ? 'chrome' : undefined,
     trace: 'retain-on-failure',
   },
   webServer: {
