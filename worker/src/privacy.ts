@@ -24,8 +24,9 @@ export async function resetExpiredDemoBookings(db: D1Database, businessId: strin
           AND created_at<datetime(?) AND lower(trim(customer_contact)) LIKE '%@example.invalid'`)
         .bind(row.id,businessId,cutoff),
       db.prepare(`DELETE FROM customer_records WHERE business_id=? AND contact_key=? AND NOT EXISTS (
-        SELECT 1 FROM appointments WHERE business_id=? AND lower(trim(customer_contact))=?)`)
-        .bind(businessId,row.contact_key,businessId,row.contact_key),
+        SELECT 1 FROM appointments WHERE business_id=? AND lower(trim(customer_contact))=?)
+        AND NOT EXISTS (SELECT 1 FROM leads WHERE business_id=? AND contact_key=?)`)
+        .bind(businessId,row.contact_key,businessId,row.contact_key,businessId,row.contact_key),
     ]);
     reset += result[1]!.meta.changes;
   }
@@ -40,6 +41,8 @@ export async function eraseCustomerDetails(db: D1Database, businessId: string, c
     (protected.status IN ('pending','confirmed')${cutoff ? ' OR protected.end_at >= ?' : ''}))`;
   const guard = [businessId, contactKey, ...(cutoff ? [cutoff] : [])];
   const results = await db.batch([
+    db.prepare(`DELETE FROM leads WHERE business_id=? AND contact_key=? AND NOT ${blocked}`)
+      .bind(businessId,contactKey,...guard),
     db.prepare(`DELETE FROM enquiry_analyses WHERE business_id=? AND appointment_id IN
       (SELECT id FROM appointments WHERE business_id=? AND lower(trim(customer_contact))=?) AND NOT ${blocked}`)
       .bind(businessId,businessId,contactKey,...guard),
@@ -50,7 +53,7 @@ export async function eraseCustomerDetails(db: D1Database, businessId: string, c
     db.prepare(`DELETE FROM customer_records WHERE business_id=? AND contact_key=? AND NOT ${blocked}`)
       .bind(businessId,contactKey,...guard),
   ]);
-  return results[2]!.meta.changes > 0 ? results[1]!.meta.changes : null;
+  return results[3]!.meta.changes > 0 ? results[2]!.meta.changes : null;
 }
 
 export async function purgeExpiredCustomers(db: D1Database, businessId: string, now = Date.now(), maxCustomers = 10, maxUnbookedEnquiries = 100): Promise<{ cutoff: string; deletedCustomers: number; anonymizedBookings: number; deletedEnquiries: number }> {
@@ -59,10 +62,10 @@ export async function purgeExpiredCustomers(db: D1Database, businessId: string, 
     SELECT id FROM enquiry_analyses WHERE business_id=? AND appointment_id IS NULL AND created_at<datetime(?)
     ORDER BY created_at,id LIMIT ?)`).bind(businessId,cutoff,maxUnbookedEnquiries).run();
   const due = await db.prepare(`SELECT c.contact_key FROM customer_records c WHERE c.business_id=?
-    AND EXISTS (SELECT 1 FROM appointments a WHERE a.business_id=c.business_id AND lower(trim(a.customer_contact))=c.contact_key)
+    AND c.updated_at<datetime(?)
     AND NOT EXISTS (SELECT 1 FROM appointments a WHERE a.business_id=c.business_id AND lower(trim(a.customer_contact))=c.contact_key
       AND (a.status IN ('pending','confirmed') OR a.end_at>=?))
-    ORDER BY c.updated_at,c.contact_key LIMIT ?`).bind(businessId,cutoff,maxCustomers).all<{ contact_key: string }>();
+    ORDER BY c.updated_at,c.contact_key LIMIT ?`).bind(businessId,cutoff,cutoff,maxCustomers).all<{ contact_key: string }>();
   let deletedCustomers = 0;
   let anonymizedBookings = 0;
   for (const customer of due.results) {

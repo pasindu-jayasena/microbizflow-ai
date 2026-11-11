@@ -81,6 +81,12 @@ The UI commit `1ad073b983a0ee46d6776ca19b1dec5544526096` and README/screenshot c
 
 The existing Free Pages project was updated as production deployment `e2974be7-aa1a-4a0a-a232-eb39309cc670` from `4f256f2`. The live browser test passed the image, corrected hours, assistant badge, automation walkthrough, owner preview isolation, and absence of page errors. A separate live smoke passed owner authentication, private-route checks, fictional booking and cancellation, and the demo contact guard. No new Cloudflare resources, D1 migration, Worker redeployment, or real message delivery occurred.
 
+## 2026-11-12 — AI lead qualification implementation
+
+Added consent-gated lead intake with a validated configurable OpenAI-compatible adapter, a Workers AI adapter, and deterministic fallback. D1 migration `0010_leads.sql` records qualification mode and latency without storing raw enquiry text; a batch transaction creates the lead and customer record. The protected owner endpoint lists the lead history. Unit tests cover consent, output validation, redaction, fallback, and endpoint configuration. A local API smoke verifies qualification, private access, idempotency, demo contact restrictions, and customer record creation. The first n8n Community workflow and setup instructions are in `n8n/workflows/01-lead-qualification.json` and `docs/n8n.md`. n8n 2.47.4 imported and executed the workflow locally with a successful fictional webhook request; its execution history showed `success` in about 292 ms.
+
+The public Cloudflare deployment still has no LLM credentials or AI binding. Model calls have been tested with fake providers, not a live model. No real external CRM or calendar credentials are available yet. The next automation feature is appointment approval and confirmation with a matching n8n workflow.
+
 ## Next work
 
 Continue monitoring Cloudflare Free usage and the hourly Cron's CPU and outcome. The owner should save the ignored production password in a password manager before deleting its local file. Future UI and feature changes should continue through `deploymentBranch`, green CI, verified owner pushes, and explicit Pages deployments.

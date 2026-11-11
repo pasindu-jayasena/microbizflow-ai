@@ -18,6 +18,7 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run test:deployment-config
+      - run: npm run test:n8n
       - run: python -m unittest discover -s tests
       - run: npm run build
       - run: google-chrome --version

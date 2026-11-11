@@ -1,0 +1,56 @@
+{
+  "name": "MicroBizFlow 01 - Lead qualification",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "microbizflow/lead",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "e7734abf-028b-4cb8-a087-8b9bb48167c2",
+      "name": "Local lead webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "e7734abf-028b-4cb8-a087-8b9bb48167c2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8788/api/leads",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Content-Type", "value": "application/json" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "bbf8eb9e-8951-49de-9c1e-9159620459dd",
+      "name": "Qualify and persist lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "e7d36a08-340f-4111-b601-7e339d06df71",
+      "name": "Return qualification",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [760, 300]
+    }
+  ],
+  "connections": {
+    "Local lead webhook": { "main": [[{ "node": "Qualify and persist lead", "type": "main", "index": 0 }]] },
+    "Qualify and persist lead": { "main": [[{ "node": "Return qualification", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1", "timezone": "Asia/Colombo" },
+  "active": false,
+  "pinData": {},
+  "meta": { "templateCredsSetupCompleted": false }
+}

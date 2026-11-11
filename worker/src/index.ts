@@ -11,8 +11,9 @@ import { processInboundWebhook, processPendingInboundWebhooks, verifyWebhook } f
 import { appointmentsCsv, listAppointments, parseAppointmentFilter } from './appointment-list';
 import { eraseCustomerDetails, purgeExpiredCustomers, resetExpiredDemoBookings } from './privacy';
 import { processCrmEvent, processPendingCrmEvents } from './crm';
+import { cloudflareLeadProvider, leadInput, leadPayloadHash, openAiLeadProvider, qualifyLead, saveLead } from './leads';
 
-interface Env { DB: D1Database; DEMO_BUSINESS_SLUG: string; ALLOWED_ORIGIN: string; DEMO_MODE?: string; OWNER_USERNAME?: string; OWNER_PASSWORD_HASH?: string; WEBHOOK_SECRET?: string; AI?: AiBinding; AI_MODEL?: string }
+interface Env { DB: D1Database; DEMO_BUSINESS_SLUG: string; ALLOWED_ORIGIN: string; DEMO_MODE?: string; OWNER_USERNAME?: string; OWNER_PASSWORD_HASH?: string; WEBHOOK_SECRET?: string; AI?: AiBinding; AI_MODEL?: string; LLM_BASE_URL?: string; LLM_API_KEY?: string; LLM_MODEL?: string }
 interface Business { id: string; slug: string; name: string; description: string; timezone: string; currency: string; address: string; phone: string }
 interface Service { id: string; name: string; description: string; duration_min: number; price_minor: number }
 interface Appointment { id: string; reference: string; service_id: string; start_at: string; end_at: string; status: string; customer_contact: string; idempotency_key: string }
@@ -116,6 +117,14 @@ async function handle(request: Request, env: Env): Promise<Response> {
       return json({ provider: 'mock', externalConfigured: false, events: rows.results });
     }
     if (url.pathname === '/api/owner/integrations/run' && request.method === 'POST') return json(await processPendingCrmEvents(env.DB,b.id));
+    if (url.pathname === '/api/owner/leads' && request.method === 'GET') {
+      const leads = await env.DB.prepare(`SELECT l.id,l.contact_key,c.display_name,c.contact,l.service_id,s.name AS service_name,
+        l.requested_date,l.requested_time,l.language,l.priority,l.mode,l.latency_ms,l.created_at
+        FROM leads l JOIN customer_records c ON c.business_id=l.business_id AND c.contact_key=l.contact_key
+        LEFT JOIN services s ON s.id=l.service_id AND s.business_id=l.business_id
+        WHERE l.business_id=? ORDER BY l.created_at DESC,l.id DESC LIMIT 50`).bind(b.id).all();
+      return json({ leads: leads.results });
+    }
     const taskMatch = url.pathname.match(/^\/api\/owner\/tasks\/(\d+)\/complete$/);
     if (taskMatch && request.method === 'POST') {
       const id = Number(taskMatch[1]);
@@ -344,6 +353,43 @@ async function handle(request: Request, env: Env): Promise<Response> {
       VALUES(?,?,?,?,?,?,?,?,?)`).bind(analysisId,b.id,analysis.intent.serviceId,analysis.intent.date,analysis.intent.time,
       analysis.intent.language,analysis.intent.missing.join(','),analysis.mode,analysis.latencyMs).run();
     return json({ ...analysis, analysisId });
+  }
+
+  if (url.pathname === '/api/leads' && request.method === 'POST') {
+    if (!await allowPublicBooking(request,env.DB,'leads',10)) return bad('Too many lead requests. Try again later.',429);
+    const parsed = leadInput.safeParse(await readJson(request));
+    if (!parsed.success) return bad('Invalid lead details or consent');
+    const input = parsed.data;
+    if (env.DEMO_MODE !== 'false' && !input.contact.endsWith('@example.invalid')) return bad('Use a fictional @example.invalid contact in this demo');
+    const prior = await env.DB.prepare(`SELECT id,payload_hash,service_id,requested_date,requested_time,language,priority,mode
+      FROM leads WHERE business_id=? AND idempotency_key=?`).bind(b.id,input.idempotencyKey)
+      .first<{ id: string; payload_hash: string; service_id: string|null; requested_date: string|null; requested_time: string|null; language: string; priority: string; mode: string }>();
+    if (prior) {
+      if (prior.payload_hash !== await leadPayloadHash(input)) return bad('Idempotency key was used for another lead',409);
+      return json({ id: prior.id, duplicate: true, qualification: { serviceId: prior.service_id, date: prior.requested_date,
+        time: prior.requested_time, language: prior.language, priority: prior.priority }, mode: prior.mode });
+    }
+    const offered = await env.DB.prepare('SELECT id,name FROM services WHERE business_id=? AND active=1 ORDER BY sort_order').bind(b.id).all<{ id: string; name: string }>();
+    const today = Temporal.Now.zonedDateTimeISO(b.timezone).toPlainDate().toString();
+    let provider;
+    if (input.consentExternalAI) {
+      try {
+        provider = env.LLM_BASE_URL && env.LLM_API_KEY && env.LLM_MODEL
+          ? openAiLeadProvider(env.LLM_BASE_URL,env.LLM_API_KEY,env.LLM_MODEL)
+          : env.AI ? cloudflareLeadProvider(env.AI) : undefined;
+      } catch { /* Invalid optional configuration leaves the rules path available. */ }
+    }
+    const result = await qualifyLead(input,offered.results,b.timezone,today,provider);
+    const stored = await saveLead(env.DB,b.id,input,result,env.DEMO_MODE !== 'false');
+    if (stored === 'conflict') return bad('Idempotency key was used for another lead',409);
+    if (stored.duplicate) {
+      const repeat = await env.DB.prepare('SELECT service_id,requested_date,requested_time,language,priority,mode FROM leads WHERE id=? AND business_id=?')
+        .bind(stored.id,b.id).first<{ service_id: string|null; requested_date: string|null; requested_time: string|null; language: string; priority: string; mode: string }>();
+      if (!repeat) return bad('Lead unavailable',503);
+      return json({ id: stored.id,duplicate: true,qualification: { serviceId: repeat.service_id,date: repeat.requested_date,
+        time: repeat.requested_time,language: repeat.language,priority: repeat.priority },mode: repeat.mode });
+    }
+    return json({ id: stored.id,duplicate: false,qualification: result.qualification,mode: result.mode },201);
   }
 
   if ((url.pathname === '/api/bookings/status' || url.pathname === '/api/bookings/cancel') && request.method === 'POST') {
