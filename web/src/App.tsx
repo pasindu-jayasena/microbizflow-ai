@@ -163,6 +163,6 @@ export function App() {
       </section>
       <BookingStatus booking={result} timezone={catalogue.business.timezone} />
     </main>
-    <footer className="bg-ink px-5 py-8 text-center text-sm text-white/70"><p>{catalogue.business.name} is a fictional MicroBizFlow AI demonstration business.</p><p className="mt-1">No real messages are sent from this site. <a className="underline underline-offset-4" href="/owner">Owner sign in</a></p></footer>
+    <footer className="bg-ink px-5 py-8 text-center text-sm text-white/70"><p>{catalogue.business.name} is a fictional MicroBizFlow AI demonstration business.</p><p className="mt-1">No real messages are sent from this site. <a className="underline underline-offset-4" href="/owner-preview">Explore sample owner view</a> · <a className="underline underline-offset-4" href="/owner">Owner sign in</a></p></footer>
   </div>;
 }

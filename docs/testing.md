@@ -8,6 +8,8 @@ Set `LOCAL_OWNER_PASSWORD` and run `npm run test:config:local` against local Pag
 
 With the same variable set, `npm run test:e2e` also signs in and saves the business profile, a service, and a day through the owner UI. CI creates a disposable local owner with a generated password for this check; it does not use deployment credentials.
 
+The public owner-preview browser test confirms fictional records can be filtered and changed locally, a page reload restores their initial state, and the preview makes no owner API requests.
+
 `npm run test:customers:local` creates a fictional booking, searches its generated customer record, verifies private appointment history and note updates, then restores the original note. The Playwright booking flow also checks the owner customer view when `LOCAL_OWNER_PASSWORD` is set.
 
 `npm run test:analytics:local` records the current protected metrics, submits a fictional booking, and verifies that booking and workflow counts increase. The dashboard labels synthetic bookings and never presents estimated revenue or business impact as measured results.
@@ -34,7 +36,7 @@ With `node scripts/wrangler.mjs dev --config wrangler.worker.toml --local --port
 
 With `LOCAL_OWNER_PASSWORD` set, `npm run test:demo:local` confirms demo mode is advertised by the public catalogue, rejects real-looking email and phone contacts at the API, accepts a reserved fictional address, and verifies the stored name and note are anonymized. The browser suite checks the contact field's client-side validity before submitting its fictional booking.
 
-Latest measured local results on 2026-11-11: TypeScript and ESLint passed; Vitest 28 tests passed; Python unittest 9 tests passed; the Vite production build passed; Playwright passed all 3 browser tests with a local test owner. Local enquiry, privacy, manual and scheduled retention, session security, scheduled recovery, demo reset, reminder, mock CRM, and demo contact and data-minimization smoke tests passed against migrated D1. Earlier CI runs failed before browser tests because their runners could not resolve Ubuntu package hosts while installing Chromium dependencies. The revised workflow passed all checks for source commit `f393357376f0bd4afc7150807e0c599b22eb3e50`.
+Latest measured local results on 2026-11-11: TypeScript and ESLint passed; Vitest 28 tests passed; Python unittest 9 tests passed; the Vite production build passed; Playwright passed all 4 browser tests with a local test owner. Local enquiry, privacy, manual and scheduled retention, session security, scheduled recovery, demo reset, reminder, mock CRM, and demo contact and data-minimization smoke tests passed against migrated D1. Earlier CI runs failed before browser tests because their runners could not resolve Ubuntu package hosts while installing Chromium dependencies. The revised workflow passed all checks for source commit `f393357376f0bd4afc7150807e0c599b22eb3e50`; CI for the owner-preview change is pending.
 
 Scheduled workflow recovery is implemented and locally tested but has not been deployed. Workflow tests cover database event creation, customer draft approval, mock delivery failure and retry. The AI suite covers invalid model output, provider failures, timeouts, and limited retry behavior. The deployed demo also needs an end-to-end booking check against its public HTTPS URL.
 

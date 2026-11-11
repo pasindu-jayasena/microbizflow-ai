@@ -10,6 +10,7 @@
 - Local checks passed: TypeScript, ESLint, 28 Vitest tests, 9 Python schema tests, production Vite build, and all 3 Playwright browser flows with a synthetic owner. Local HTTP smoke tests covered booking concurrency, owner authorization, privacy, signed webhooks, mock workflows and CRM, and bounded scheduled retention and 24-hour demo reset.
 - [GitHub CI for the reviewed source commit](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/43058314575) passed all steps, including local D1 migration, seed, and all three browser tests on Ubuntu 24.04.
 - Demo mode is enabled by default and in both Wrangler configs. It accepts only reserved `@example.invalid` booking contacts, stores a fixed fictional name, discards booking notes, and sends no real messages. The scheduled Worker has `workers_dev = false` and `preview_urls = false`.
+- A public owner workspace preview was subsequently added with four fictional browser-only records and no owner API requests. All four local browser tests pass; a GitHub CI run for this addition is still required.
 
 ## Required services and free limits
 
