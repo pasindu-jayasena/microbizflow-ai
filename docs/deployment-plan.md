@@ -1,8 +1,8 @@
 # Cloudflare Free deployment plan — 2026-11-11
 
-**Status: approved for deployment by the owner's 2026-11-11 request to continue and provide the live link.** Source preparation now occurs on `deploymentBranch` with [draft PR #2](https://github.com/pasindu-jayasena/microbizflow-ai/pull/2). Production is released from `main` only after checks and a fast-forward merge. Direct Upload is manual; pushing a branch does not automatically deploy it.
+**Status: approved and deployed on 2026-11-12 (Asia/Colombo).** The reviewed `deploymentBranch` was fast-forwarded to `main` through [PR #2](https://github.com/pasindu-jayasena/microbizflow-ai/pull/2). The live URL and results are in the [deployment record](deployment.md). Direct Upload remains manual; pushing a branch does not automatically deploy it.
 
-Approved resources created on 2026-11-11: D1 `microbizflow-demo` in APAC (UUID `8999f517-eabe-4923-a647-5fcaa6d85017`) and Pages Direct Upload project `microbizflow-ai` with production branch `main`. The Pages site has no deployment yet. The scheduled Worker has not been created. The production Wrangler configurations refer to this verified D1 UUID; local Worker development retains a placeholder ID and cannot reach remote D1.
+Approved resources: D1 `microbizflow-demo` in APAC (UUID `8999f517-eabe-4923-a647-5fcaa6d85017`), Pages Direct Upload project `microbizflow-ai` with production branch `main`, and private scheduled Worker `microbizflow-api`. The Pages site and Worker were deployed on 2026-11-12. The production Wrangler configurations refer to this verified D1 UUID; local Worker development retains a placeholder ID and cannot reach remote D1. The scheduled trigger is deployed; its first live invocation and CPU time await observation.
 
 ## Account and cost boundary
 
@@ -18,13 +18,13 @@ No R2, KV, Queues, Workers AI binding, paid model, messaging provider, external 
 
 **Direct Upload choice:** [Cloudflare states that a Direct Upload project cannot switch to Git integration later](https://developers.cloudflare.com/pages/get-started/direct-upload/). A future Git-connected workflow would require a new Pages project. Wrangler is required here because dashboard drag and drop does not compile the `functions/` folder. This choice is part of the requested approval.
 
-## Before any provisioning
+## Pre-provisioning checklist used
 
 1. Confirm the owner's approval of this exact plan, including Direct Upload, D1, and the private Cron Worker. Recheck Wrangler `whoami`, project/database lists, GitHub owner and verified commit identity, the clean branch, current Cloudflare Free limits, and the reported billing status. Stop on any conflict or pre-existing resource name.
 2. On `deploymentBranch`, run `npm run typecheck`, `npm run lint`, `npm test`, `npm run test:deployment-config`, `python -m unittest discover -s tests`, `npm run build`, and `npm run test:e2e` against local Pages/D1. Require green GitHub CI and review the diff. Keep secrets and `.dev.vars` ignored.
 3. Run `npm run owner:prepare:production` locally to generate a 256-bit random owner password and salted SHA-256 hash in ignored `.production-owner-credentials`. Save the password to the owner's password manager; never paste it into Git, logs, or a command argument. Use only its username and hash as protected Pages secrets, then delete the local credentials file after the owner has saved the password and verified sign-in. Never reuse the synthetic local owner password. This high-entropy secret avoids the roughly 47 ms local CPU cost measured for the legacy PBKDF2 path, which may exceed Workers Free's 10 ms invocation limit. Live CPU remains to be measured.
 
-## Provision and release after approval
+## Approved provision and release sequence used
 
 1. Create only `microbizflow-demo` with `node scripts/wrangler.mjs d1 create microbizflow-demo`, recording the returned database UUID. Use the default Free account and no jurisdiction or paid options. Create only `microbizflow-ai` with `node scripts/wrangler.mjs pages project create microbizflow-ai --production-branch main`. If the Pages name is unavailable, stop and revise the plan before creating another project.
 2. Put the verified D1 UUID and `microbizflow-demo` name in `wrangler.toml` and `wrangler.worker.production.toml`. Set both `ALLOWED_ORIGIN` values to `https://microbizflow-ai.pages.dev`; retain `DEMO_MODE="true"`, the `DB` binding, and the private Worker settings. Keep `wrangler.worker.toml` local with a placeholder D1 ID; `dev:pages` overrides its D1 ID and the API accepts its own local origin. Run `npm run check:deployment-config`, which must pass. Review and commit this public configuration on the deployment branch using the verified owner identity; push and require green CI.
