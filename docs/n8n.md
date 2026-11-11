@@ -24,6 +24,12 @@ Only use fictional contacts for the public demo. The lead webhook has no real cu
 
 On 2026-11-12, n8n Community Edition 2.47.4 imported this JSON, published it locally, and processed a fictional POST through `/webhook/microbizflow/lead`. The Worker returned HTTP 201 to n8n and the webhook returned HTTP 200 with a qualified `svc_cut` lead. n8n's local execution history recorded `success` (about 292 ms). No external model or messaging provider was called.
 
+## Appointment request and owner confirmation
+
+Import `n8n/workflows/02-appointment-request.json` in the same local instance. It receives a fictional booking request at `/webhook/microbizflow/appointment-request`, asks the Worker for current availability, rejects an unavailable time, and submits the request to `POST /api/bookings`. The Worker rechecks the slot and D1 enforces chair capacity under concurrent requests. The response is **pending** with a private cancellation code. Sign in to `/owner` to approve or decline it; n8n has no owner credential and cannot confirm bookings on its own.
+
+With the local Worker and published n8n workflow running, `npm run test:n8n:booking:local` chooses a live slot, calls the n8n webhook, and checks the pending booking and owner access boundary. A Playwright owner approval test then signs in with a disposable local owner, confirms a separate booking, checks its public private-code status, and verifies that the confirmation draft still needs human approval. On 2026-11-12, n8n 2.47.4 imported and ran this workflow successfully; its local execution history recorded `success` in about 178 ms.
+
 ## LLM configuration
 
 The lead workflow uses an OpenAI-compatible chat-completions endpoint when `LLM_BASE_URL`, `LLM_API_KEY`, and `LLM_MODEL` are present **and** the visitor opts in to external AI. Set the base URL including its API prefix, for example `https://api.example.com/v1/`. Put the key in ignored `.dev.vars` for local development or an encrypted Cloudflare secret for a future approved deployment; never set it in Vite variables or a workflow JSON export. The alternative Cloudflare Workers AI adapter uses the approved Llama 3.1 model if an `AI` binding is configured. The public deployment currently has neither an AI binding nor external LLM secrets, so lead qualification uses deterministic rules.

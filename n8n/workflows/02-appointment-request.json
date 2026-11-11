@@ -1,0 +1,70 @@
+{
+  "name": "MicroBizFlow 02 - Availability and owner approval",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "microbizflow/appointment-request", "responseMode": "responseNode", "options": {} },
+      "id": "a6eb010c-55e4-45e6-9fd9-c4af56c1904f",
+      "name": "Booking request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 320],
+      "webhookId": "a6eb010c-55e4-45e6-9fd9-c4af56c1904f"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'http://127.0.0.1:8788/api/availability?serviceId=' + encodeURIComponent($json.body.serviceId) + '&date=' + encodeURIComponent($json.body.date) }}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "bb2f2e88-c3cd-490a-b92b-ea3e5d42b3d9",
+      "name": "Check live availability",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 320]
+    },
+    {
+      "parameters": {
+        "jsCode": "const request = $('Booking request').first().json.body;\nconst slots = $input.first().json.slots;\nif (!Array.isArray(slots) || !slots.includes(request.time)) throw new Error('Requested slot is unavailable; choose another time.');\nreturn [{ json: request }];"
+      },
+      "id": "69e2e20b-13fa-47ea-a6e5-572dd78c563e",
+      "name": "Require available slot",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 320]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8788/api/bookings",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Content-Type", "value": "application/json" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "4db8bb9b-c07b-4fe0-b046-7679d170af20",
+      "name": "Create pending booking",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [940, 320]
+    },
+    {
+      "parameters": { "respondWith": "json", "responseBody": "={{ JSON.stringify($json) }}", "options": {} },
+      "id": "339d0b5a-1ec0-4a78-b09b-229844203fd3",
+      "name": "Return pending reference",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1180, 320]
+    }
+  ],
+  "connections": {
+    "Booking request": { "main": [[{ "node": "Check live availability", "type": "main", "index": 0 }]] },
+    "Check live availability": { "main": [[{ "node": "Require available slot", "type": "main", "index": 0 }]] },
+    "Require available slot": { "main": [[{ "node": "Create pending booking", "type": "main", "index": 0 }]] },
+    "Create pending booking": { "main": [[{ "node": "Return pending reference", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1", "timezone": "Asia/Colombo" },
+  "active": false,
+  "pinData": {},
+  "meta": { "templateCredsSetupCompleted": false }
+}

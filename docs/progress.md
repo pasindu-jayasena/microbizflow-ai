@@ -87,6 +87,12 @@ Added consent-gated lead intake with a validated configurable OpenAI-compatible 
 
 The public Cloudflare deployment still has no LLM credentials or AI binding. Model calls have been tested with fake providers, not a live model. No real external CRM or calendar credentials are available yet. The next automation feature is appointment approval and confirmation with a matching n8n workflow.
 
+## 2026-11-12 — Appointment availability and owner confirmation workflow
+
+Added a second n8n Community workflow that checks current availability before submitting a fictional pending booking through the Worker API. It imported and ran locally under n8n 2.47.4; the local execution history recorded `success` in about 178 ms. A local smoke confirmed that n8n returned a pending reference and private code, while owner appointment data remained unauthenticated. A new Playwright flow uses a disposable owner to confirm a separate pending booking, checks the private-code status, and verifies the confirmation draft remains approval-gated. The Worker and D1 remain authoritative for concurrent capacity and state transitions.
+
+The next automation feature is scheduled reminders and owner-approved follow-up drafts with a corresponding n8n import.
+
 ## Next work
 
 Continue monitoring Cloudflare Free usage and the hourly Cron's CPU and outcome. The owner should save the ignored production password in a password manager before deleting its local file. Future UI and feature changes should continue through `deploymentBranch`, green CI, verified owner pushes, and explicit Pages deployments.
