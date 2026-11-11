@@ -46,9 +46,9 @@ export async function processEvent(db: D1Database, businessId: string, eventKey:
   }
 }
 
-export async function processPendingEvents(db: D1Database, businessId: string): Promise<{ processed: number; failed: number }> {
+export async function processPendingEvents(db: D1Database, businessId: string, limit = 10): Promise<{ processed: number; failed: number }> {
   const due = await db.prepare(`SELECT event_key FROM workflow_events WHERE business_id=? AND attempts<3
-    AND (state IN ('pending','failed') OR (state='processing' AND lease_until<?)) ORDER BY id LIMIT 10`).bind(businessId, Date.now()).all<{ event_key: string }>();
+    AND (state IN ('pending','failed') OR (state='processing' AND lease_until<?)) ORDER BY id LIMIT ?`).bind(businessId, Date.now(), limit).all<{ event_key: string }>();
   let processed = 0;
   let failed = 0;
   for (const event of due.results) {

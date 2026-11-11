@@ -36,10 +36,10 @@ export async function processInboundWebhook(db: D1Database, businessId: string, 
   }
 }
 
-export async function processPendingInboundWebhooks(db: D1Database, businessId: string): Promise<{ processed: number; failed: number }> {
+export async function processPendingInboundWebhooks(db: D1Database, businessId: string, limit = 10): Promise<{ processed: number; failed: number }> {
   const due = await db.prepare(`SELECT external_id FROM inbound_webhooks WHERE business_id=? AND attempts<3
-    AND (state IN ('pending','failed') OR (state='processing' AND lease_until<?)) ORDER BY created_at LIMIT 10`)
-    .bind(businessId,Date.now()).all<{ external_id: string }>();
+    AND (state IN ('pending','failed') OR (state='processing' AND lease_until<?)) ORDER BY created_at LIMIT ?`)
+    .bind(businessId,Date.now(),limit).all<{ external_id: string }>();
   let processed = 0;
   let failed = 0;
   for (const row of due.results) {

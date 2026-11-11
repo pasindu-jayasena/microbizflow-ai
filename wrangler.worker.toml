@@ -2,6 +2,9 @@ name = "microbizflow-api"
 main = "worker/src/index.ts"
 compatibility_date = "2026-11-01"
 
+[triggers]
+crons = ["0 * * * *"]
+
 [[d1_databases]]
 binding = "DB"
 database_name = "microbizflow-local"

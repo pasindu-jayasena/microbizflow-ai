@@ -422,4 +422,11 @@ export default {
       return json({ error: 'Service temporarily unavailable' }, 503, cors);
     }
   },
+  async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
+    const b = await business(env.DB,env.DEMO_BUSINESS_SLUG);
+    if (!b) throw new Error('Business is not configured');
+    // Keep each invocation small for Workers Free CPU and D1 request limits.
+    await processPendingEvents(env.DB,b.id,2);
+    await processPendingInboundWebhooks(env.DB,b.id,2);
+  },
 } satisfies ExportedHandler<Env>;

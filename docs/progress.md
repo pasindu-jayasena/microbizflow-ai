@@ -21,9 +21,11 @@
 - A bounded owner-run 365-day customer retention action was pushed in commit `4ed7d29a56316ce15f333ea5c6d61f325b1c1aae`; its [Checks run](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/42936105927) passed.
 - Expiry of unbooked assistant analyses was pushed in commit `c1018b177298c0f04adb28e70493cd64d6e85e0b`; its [Checks run](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/42936582198) passed.
 - Local session and cross-origin security checks were pushed in commit `3ad40b4afaeb9ef269c608c8762fe91f910133c8`; its [Checks run](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/42936878406) passed.
+- Deployment account and billing checks were clarified in commit `191bb21e2f51e61d927ff95fe0e55f3ed0971771`; its [Checks run](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/42937181424) passed.
+- Bounded hourly recovery of failed workflow and webhook events is implemented and tested locally; its commit and push are pending. The Cron Trigger definition is not deployed.
 - Wrangler `whoami` confirmed the Cloudflare account associated with `pasindujayasena.biz@gmail.com` on 2026-11-11. A read-only subscription lookup returned HTTP 403 because the OAuth token lacks Billing Read. The user confirmed Workers Free in the dashboard and reported canceling R2 Paid; cancellation, other subscriptions, usage, and charges remain unverified. No Cloudflare resource has been provisioned or deployed; deployment requires a readiness report and explicit approval.
 - No public demo, live URL, or real message delivery is claimed.
 
 ## Next work
 
-Add scheduled recovery, reminders, and remaining automation capabilities, review free-tier and billing status, and prepare a deployment readiness report. Provisioning and deployment await explicit user approval.
+Finish and publish scheduled recovery separately. Then add reminders and remaining automation capabilities, review free-tier and billing status, and prepare a deployment readiness report. Provisioning and deployment await explicit user approval.

@@ -54,6 +54,7 @@ npm run test:enquiries:local
 npm run test:privacy:local
 npm run test:retention:local
 npm run test:security:local
+npm run test:scheduled:local
 ```
 
 The Playwright suite creates a fictional browser booking and verifies owner routes require sign-in. It starts Pages if needed, uses installed Chrome on Windows, and runs in CI after local D1 migration and seed. On Linux, install Chromium with `npx playwright install chromium`. The integration smoke test creates fictional bookings in the local D1 database. It checks that simultaneous requests fill two chairs, a third conflicts, and an idempotent replay returns the same reference. [Testing notes](docs/testing.md) record the current results and limits.
