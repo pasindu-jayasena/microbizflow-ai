@@ -23,7 +23,8 @@ test('a customer can request, check, and cancel a real booking', async ({ page, 
   const suggestion = page.getByRole('button', { name: 'Use suggested service and date' });
   const limited = page.getByRole('alert').filter({ hasText: 'Too many assistant requests' });
   await expect(suggestion.or(limited)).toBeVisible();
-  if (await suggestion.isVisible()) {
+  const analyzed = await suggestion.isVisible();
+  if (analyzed) {
     await expect(page.getByText('Simple suggestion', { exact: true })).toBeVisible();
     await suggestion.click();
   }
@@ -35,6 +36,7 @@ test('a customer can request, check, and cancel a real booking', async ({ page, 
   await page.getByLabel('Email or phone').fill(contact);
   await page.getByRole('button', { name: /Request Signature haircut/ }).click();
   await expect(page.getByRole('heading', { name: 'Request received' })).toBeVisible();
+  const reference = await page.locator('#booking').getByText(/^MBF-[A-F0-9]{8}$/).textContent();
   await expect(page.getByText(/MBF-[A-F0-9]{8}/)).toBeVisible();
   await expect(page.getByText('Private cancellation code')).toBeVisible();
   await page.getByRole('button', { name: 'Check status' }).click();
@@ -45,10 +47,16 @@ test('a customer can request, check, and cancel a real booking', async ({ page, 
     await page.goto('/owner');
     await page.getByLabel('Password').fill(process.env.LOCAL_OWNER_PASSWORD);
     await page.getByRole('button', { name: 'Sign in' }).click();
+    if (analyzed && reference) {
+      const enquiryCard = page.getByRole('region', { name: 'AI enquiries' }).locator('article').filter({ hasText: reference });
+      await expect(enquiryCard).toBeVisible();
+      await enquiryCard.getByRole('button', { name: 'Mark reviewed' }).click();
+      await expect(enquiryCard).toContainText('reviewed');
+    }
     await page.getByLabel('Search appointments').fill(contact);
     await page.getByRole('combobox', { name: 'Status' }).selectOption('cancelled');
     await page.getByRole('button', { name: 'Apply filters' }).click();
-    await expect(page.locator('article').filter({ hasText: contact })).toBeVisible();
+    await expect(page.locator('article').filter({ hasText: contact }).first()).toBeVisible();
     const downloadStarted = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Export CSV' }).click();
     const download = await downloadStarted;

@@ -7,7 +7,7 @@ type Hours = { weekday: number; open_min: number; close_min: number };
 type Business = { slug: string; name: string; description: string; timezone: string; currency: string; address: string; phone: string };
 type Catalogue = { business: Business; services: Service[]; hours: Hours[]; aiAvailable?: boolean };
 type BookingResult = { reference: string; status: string; cancellationCode: string };
-type Analysis = { intent: { serviceId: string | null; date: string | null; time: string | null; language: string; missing: string[]; clarification: string | null }; mode: 'demo' | 'cloudflare' | 'fallback'; latencyMs: number };
+type Analysis = { analysisId: string; intent: { serviceId: string | null; date: string | null; time: string | null; language: string; missing: string[]; clarification: string | null }; mode: 'demo' | 'cloudflare' | 'fallback'; latencyMs: number };
 
 const API = import.meta.env.VITE_API_BASE_URL?.trim() ?? '';
 const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -92,7 +92,7 @@ export function App() {
     if (!selected || !date || !time || submitting) return;
     setSubmitting(true); setSubmitError('');
     try {
-      const booked = await api<BookingResult>('/api/bookings', { method: 'POST', body: JSON.stringify({ serviceId: selected, date, time, customerName: name, customerContact: contact, note, idempotencyKey: requestKey }) });
+      const booked = await api<BookingResult>('/api/bookings', { method: 'POST', body: JSON.stringify({ serviceId: selected, date, time, customerName: name, customerContact: contact, note, idempotencyKey: requestKey, analysisId: analysis?.analysisId }) });
       setResult(booked);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Could not send your request.');

@@ -77,6 +77,15 @@ class SchemaTest(unittest.TestCase):
             self.db.execute("INSERT INTO owner_tasks(business_id,appointment_id,external_id,title) VALUES('biz_demo','one','event-1','Review')")
         self.assertEqual(self.db.execute('SELECT COUNT(*) FROM owner_tasks').fetchone()[0], 1)
 
+    def test_enquiry_review_stores_only_structured_fields(self):
+        columns = {row[1] for row in self.db.execute('PRAGMA table_info(enquiry_analyses)')}
+        self.assertNotIn('raw_text', columns)
+        self.assertNotIn('message', columns)
+        self.db.execute("""INSERT INTO enquiry_analyses(id,business_id,language,missing_fields,mode,latency_ms)
+            VALUES('enquiry-1','biz_demo','en','date,time','demo',3)""")
+        self.db.execute("UPDATE enquiry_analyses SET review_state='reviewed',reviewed_at=CURRENT_TIMESTAMP WHERE id='enquiry-1'")
+        self.assertEqual(self.db.execute("SELECT review_state FROM enquiry_analyses WHERE id='enquiry-1'").fetchone()[0], 'reviewed')
+
 
 if __name__ == '__main__':
     unittest.main()

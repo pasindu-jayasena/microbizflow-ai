@@ -9,6 +9,7 @@ export const bookingInput = z.object({
   customerContact: z.string().trim().min(5).max(120),
   note: z.string().trim().max(500).default(''),
   idempotencyKey: z.uuid(),
+  analysisId: z.uuid().optional(),
 });
 export type BookingInput = z.infer<typeof bookingInput>;
 

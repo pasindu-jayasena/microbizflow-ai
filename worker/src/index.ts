@@ -169,6 +169,21 @@ async function handle(request: Request, env: Env): Promise<Response> {
         workflows: { total: workflowTotal, done: Number(workflows?.done ?? 0), failed: Number(workflows?.failed ?? 0), successRate: workflowTotal ? Number(workflows?.done ?? 0) / workflowTotal : null },
       });
     }
+    if (url.pathname === '/api/owner/enquiries' && request.method === 'GET') {
+      const rows = await env.DB.prepare(`SELECT e.id,e.service_id,e.requested_date,e.requested_time,e.language,e.missing_fields,e.mode,e.latency_ms,
+        e.review_state,e.created_at,a.reference,a.customer_name,a.customer_contact,s.name AS service_name
+        FROM enquiry_analyses e LEFT JOIN appointments a ON a.id=e.appointment_id
+        LEFT JOIN services s ON s.id=e.service_id AND s.business_id=e.business_id
+        WHERE e.business_id=? ORDER BY e.created_at DESC,e.id DESC LIMIT 100`).bind(b.id).all();
+      return json({ enquiries: rows.results });
+    }
+    const enquiryMatch = url.pathname.match(/^\/api\/owner\/enquiries\/([0-9a-f-]{36})\/review$/);
+    if (enquiryMatch && request.method === 'POST') {
+      const result = await env.DB.prepare("UPDATE enquiry_analyses SET review_state='reviewed',reviewed_at=CURRENT_TIMESTAMP WHERE id=? AND business_id=? AND review_state='pending'")
+        .bind(enquiryMatch[1],b.id).run();
+      if (result.meta.changes < 1) return bad('Enquiry not found or already reviewed', 409);
+      return json({ id: enquiryMatch[1], state: 'reviewed' });
+    }
     const customerMatch = url.pathname.match(/^\/api\/owner\/customers\/([^/]+)$/);
     if (customerMatch) {
       let contactKey: string;
@@ -301,7 +316,11 @@ async function handle(request: Request, env: Env): Promise<Response> {
     const provider = parsed.data.consentExternalAI && env.AI && allowedModels.has(configuredModel)
       ? cloudflareProvider(env.AI, configuredModel) : undefined;
     const analysis = await analyzeEnquiry(parsed.data.text, offered.results, b.timezone, today, provider);
-    return json(analysis);
+    const analysisId = crypto.randomUUID();
+    await env.DB.prepare(`INSERT INTO enquiry_analyses(id,business_id,service_id,requested_date,requested_time,language,missing_fields,mode,latency_ms)
+      VALUES(?,?,?,?,?,?,?,?,?)`).bind(analysisId,b.id,analysis.intent.serviceId,analysis.intent.date,analysis.intent.time,
+      analysis.intent.language,analysis.intent.missing.join(','),analysis.mode,analysis.latencyMs).run();
+    return json({ ...analysis, analysisId });
   }
 
   if ((url.pathname === '/api/bookings/status' || url.pathname === '/api/bookings/cancel') && request.method === 'POST') {
@@ -367,6 +386,12 @@ async function handle(request: Request, env: Env): Promise<Response> {
     }
     const created = await findExisting();
     if (!created) return bad('This time is no longer available', 409);
+    if (input.analysisId) {
+      try {
+        await env.DB.prepare('UPDATE enquiry_analyses SET appointment_id=? WHERE id=? AND business_id=? AND appointment_id IS NULL')
+          .bind(created.id,input.analysisId,b.id).run();
+      } catch { /* Optional enquiry linking must not fail a committed booking. */ }
+    }
     try { await processEvent(env.DB, b.id, `${created.id}:created`); } catch { /* Durable event remains for manual retry. */ }
     return json({ reference: created.reference, status: created.status, cancellationCode: created.idempotency_key }, 201);
   }
