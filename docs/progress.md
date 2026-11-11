@@ -17,10 +17,11 @@
 - Signed inbound webhooks and owner follow-up tasks were pushed in commit `9c0c54229d6469b228510df515e703bd79565e04`; its [Checks run](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/42932999661) passed.
 - Owner appointment search, status filtering, and a protected CSV export were pushed in commit `f85b6a9dac98f7c67dc300f80163045512fdab40`; its [Checks run](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/42933945198) passed.
 - Structured assistant enquiry records and an owner review queue were pushed in commit `ca22e29853e5ce3bb7bd149b02929d746ca9e117`; its [Checks run](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/42934841541) passed.
-- Owner-controlled deletion of customer details with an active-booking guard is implemented locally and under test; its commit and push are pending.
+- Owner-controlled deletion of customer details with an active-booking guard was pushed in commit `5abcdf82e353fb2052020bd15615633dd364785a`; its [Checks run](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/42935485841) passed.
+- A bounded owner-run 365-day retention action is implemented locally and under test; its commit and push are pending.
 - Wrangler confirms a Cloudflare account associated with `pasindujayasena.biz@gmail.com`. A read-only subscription lookup returned HTTP 403 because the OAuth token lacks Billing Read. The user confirmed Workers Free in the dashboard and reported canceling R2 Paid, with cancellation still pending billing verification. No Cloudflare resource has been provisioned or deployed; deployment requires a readiness report and explicit approval.
 - No public demo, live URL, or real message delivery is claimed.
 
 ## Next work
 
-Finish and publish owner-controlled customer deletion separately. Then add age-based retention and remaining automation capabilities, review free-tier and billing status, and prepare a deployment readiness report. Provisioning and deployment await explicit user approval.
+Finish and publish owner-run retention separately. Then add scheduled recovery, reminders, and remaining automation capabilities, review free-tier and billing status, and prepare a deployment readiness report. Provisioning and deployment await explicit user approval.

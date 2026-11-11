@@ -79,6 +79,9 @@ test('a customer can request, check, and cancel a real booking', async ({ page, 
     await page.getByRole('button', { name: 'Delete customer details' }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Customer details deleted' })).toBeVisible();
     await expect(page.getByText('No customers match this search.')).toBeVisible();
+    page.once('dialog', dialog => dialog.accept());
+    await page.getByRole('button', { name: 'Run retention now' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Retention run erased' })).toBeVisible();
   }
 });
 

@@ -8,6 +8,7 @@ import { approveNotification, deliverApproved, processEvent, processPendingEvent
 import { businessProfile, hoursConfig, serviceConfig } from '../../shared/config';
 import { processInboundWebhook, processPendingInboundWebhooks, verifyWebhook } from './webhooks';
 import { appointmentsCsv, listAppointments, parseAppointmentFilter } from './appointment-list';
+import { eraseCustomerDetails, purgeExpiredCustomers } from './privacy';
 
 interface Env { DB: D1Database; DEMO_BUSINESS_SLUG: string; ALLOWED_ORIGIN: string; OWNER_USERNAME?: string; OWNER_PASSWORD_HASH?: string; WEBHOOK_SECRET?: string; AI?: AiBinding; AI_MODEL?: string }
 interface Business { id: string; slug: string; name: string; description: string; timezone: string; currency: string; address: string; phone: string }
@@ -138,6 +139,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
         GROUP BY c.business_id,c.contact_key ORDER BY c.updated_at DESC,c.contact_key LIMIT 50`).bind(b.id,query,query).all();
       return json({ customers: rows.results });
     }
+    if (url.pathname === '/api/owner/retention/run' && request.method === 'POST') return json(await purgeExpiredCustomers(env.DB,b.id));
     if (url.pathname === '/api/owner/analytics' && request.method === 'GET') {
       const [counts, services, workflows] = await Promise.all([
         env.DB.prepare(`SELECT COUNT(*) AS total,
@@ -206,21 +208,9 @@ async function handle(request: Request, env: Env): Promise<Response> {
       if (request.method === 'DELETE') {
         const customer = await env.DB.prepare('SELECT 1 AS found FROM customer_records WHERE business_id=? AND contact_key=?').bind(b.id,contactKey).first();
         if (!customer) return bad('Customer not found', 404);
-        const active = `EXISTS (SELECT 1 FROM appointments active WHERE active.business_id=?
-          AND lower(trim(active.customer_contact))=? AND active.status IN ('pending','confirmed'))`;
-        const results = await env.DB.batch([
-          env.DB.prepare(`DELETE FROM enquiry_analyses WHERE business_id=? AND appointment_id IN
-            (SELECT id FROM appointments WHERE business_id=? AND lower(trim(customer_contact))=?) AND NOT ${active}`)
-            .bind(b.id,b.id,contactKey,b.id,contactKey),
-          env.DB.prepare(`UPDATE appointments SET customer_name='Deleted customer',customer_contact='deleted:' || id,
-            customer_note='',idempotency_key=lower(hex(randomblob(16))),updated_at=CURRENT_TIMESTAMP
-            WHERE business_id=? AND lower(trim(customer_contact))=? AND NOT ${active}`)
-            .bind(b.id,contactKey,b.id,contactKey),
-          env.DB.prepare(`DELETE FROM customer_records WHERE business_id=? AND contact_key=? AND NOT ${active}`)
-            .bind(b.id,contactKey,b.id,contactKey),
-        ]);
-        if (results[2]!.meta.changes < 1) return bad('Finish or cancel active bookings before deleting this customer', 409);
-        return json({ deleted: true, anonymizedBookings: results[1]!.meta.changes });
+        const anonymizedBookings = await eraseCustomerDetails(env.DB,b.id,contactKey);
+        if (anonymizedBookings === null) return bad('Finish or cancel active bookings before deleting this customer', 409);
+        return json({ deleted: true, anonymizedBookings });
       }
     }
     if (url.pathname === '/api/owner/services' && request.method === 'POST') {
@@ -421,7 +411,7 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const origin = request.headers.get('origin');
     if (origin && origin !== env.ALLOWED_ORIGIN) return bad('Origin not allowed', 403);
-    const cors: HeadersInit = origin ? { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Methods': 'GET,POST,PATCH,OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' } : {};
+    const cors: HeadersInit = origin ? { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' } : {};
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     try {
       const response = await handle(request, env);
