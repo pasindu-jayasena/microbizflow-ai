@@ -19,10 +19,11 @@
 - Structured assistant enquiry records and an owner review queue were pushed in commit `ca22e29853e5ce3bb7bd149b02929d746ca9e117`; its [Checks run](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/42934841541) passed.
 - Owner-controlled deletion of customer details with an active-booking guard was pushed in commit `5abcdf82e353fb2052020bd15615633dd364785a`; its [Checks run](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/42935485841) passed.
 - A bounded owner-run 365-day customer retention action was pushed in commit `4ed7d29a56316ce15f333ea5c6d61f325b1c1aae`; its [Checks run](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/42936105927) passed.
-- Expiry of unbooked assistant analyses is implemented locally and under test; its commit and push are pending.
+- Expiry of unbooked assistant analyses was pushed in commit `c1018b177298c0f04adb28e70493cd64d6e85e0b`; its [Checks run](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/42936582198) passed.
+- Local session and cross-origin security checks are implemented and under test; their commit and push are pending.
 - Wrangler confirms a Cloudflare account associated with `pasindujayasena.biz@gmail.com`. A read-only subscription lookup returned HTTP 403 because the OAuth token lacks Billing Read. The user confirmed Workers Free in the dashboard and reported canceling R2 Paid, with cancellation still pending billing verification. No Cloudflare resource has been provisioned or deployed; deployment requires a readiness report and explicit approval.
 - No public demo, live URL, or real message delivery is claimed.
 
 ## Next work
 
-Finish and publish unbooked assistant expiry separately. Then add scheduled recovery, reminders, and remaining automation capabilities, review free-tier and billing status, and prepare a deployment readiness report. Provisioning and deployment await explicit user approval.
+Finish and publish session and cross-origin security checks separately. Then add scheduled recovery, reminders, and remaining automation capabilities, review free-tier and billing status, and prepare a deployment readiness report. Provisioning and deployment await explicit user approval.

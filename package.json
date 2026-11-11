@@ -22,6 +22,7 @@
     "test:enquiries:local": "node scripts/smoke-enquiries.mjs",
     "test:privacy:local": "node scripts/smoke-privacy.mjs",
     "test:retention:local": "node scripts/smoke-retention.mjs",
+    "test:security:local": "node scripts/smoke-security.mjs",
     "test:e2e": "playwright test",
     "owner:setup:local": "node scripts/setup-owner.mjs",
     "db:migrate:local": "node scripts/wrangler.mjs d1 migrations apply microbizflow-local --config wrangler.worker.toml --local",
