@@ -1,5 +1,7 @@
 # Deployment
 
+The [deployment readiness report](deployment-readiness.md) records verified checks, free-tier limits, open billing and CI gates, and the proposed approval sequence.
+
 No deployment has been performed. The target is a low-traffic $0/month demonstration on Cloudflare Pages Functions (the Workers runtime) and D1 with provider subdomains. Never enable billing or paid resources without explicit owner approval. `node scripts/wrangler.mjs whoami` confirmed the account associated with `pasindujayasena.biz@gmail.com` on 2026-11-11. The owner confirmed Workers Free in the dashboard and reported canceling R2 Paid. R2 cancellation, other paid subscriptions, billable usage, and outstanding charges remain unverified because a read-only subscription lookup returned HTTP 403 without Billing Read. Recheck the billing dashboard before any provisioning.
 
 As checked on 2026-11-11, [Workers Free](https://developers.cloudflare.com/workers/platform/limits/) lists 100,000 requests/day and 10 ms CPU time per request. [D1 Free](https://developers.cloudflare.com/d1/platform/pricing/) lists 5 million rows read/day, 100,000 rows written/day, and 5 GB total storage. [Cloudflare's September 2026 notice](https://developers.cloudflare.com/changelog/post/2026-09-01-d1-free-tier-limit-enforcement/) says D1 requests fail when daily free row limits are reached. These limits can change; recheck them before deployment and do not promise uptime or unlimited usage.

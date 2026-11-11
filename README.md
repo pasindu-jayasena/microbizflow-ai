@@ -8,6 +8,8 @@ MicroBizFlow AI is an open-source booking and customer workflow application for 
 
 The standalone Worker has an hourly demo reset that releases reservations after 24 hours, anonymizes their records, and revokes their private codes. It is tested locally and will run only after a separately approved deployment.
 
+See the [deployment readiness report](docs/deployment-readiness.md) for verified checks, remaining account and CI gates, and potential costs.
+
 A working **local MVP** includes service browsing, real slot availability, pending booking requests, database-enforced chair capacity, idempotent submissions, reference-and-code status lookup and cancellation, owner sign-in, appointment decisions, searchable and exportable owner appointments, business-profile, service, and working-hours management, searchable customer records with private notes and owner-controlled deletion, owner analytics from stored records, a no-key English/Sinhala enquiry assistant with a structured owner review queue, approval-gated mock notifications and appointment reminder drafts, signed inbound webhook support, and a durable mock CRM sync. Demo mode accepts only fictional `@example.invalid` booking contacts, stores a fixed visitor name, and discards booking notes. The public repository exists, but **no public demo has been deployed**. Remote AI inference and inbound webhooks are optional and unconfigured in the checked-in deployment settings. Real messaging and external CRM providers are still on the [roadmap](docs/roadmap.md). Do not use the current build for real customer data.
 
 ![Customer page at desktop width](docs/screenshots/customer-desktop.png)
