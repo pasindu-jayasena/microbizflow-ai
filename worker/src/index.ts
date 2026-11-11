@@ -11,7 +11,7 @@ import { appointmentsCsv, listAppointments, parseAppointmentFilter } from './app
 import { eraseCustomerDetails, purgeExpiredCustomers } from './privacy';
 import { processCrmEvent, processPendingCrmEvents } from './crm';
 
-interface Env { DB: D1Database; DEMO_BUSINESS_SLUG: string; ALLOWED_ORIGIN: string; OWNER_USERNAME?: string; OWNER_PASSWORD_HASH?: string; WEBHOOK_SECRET?: string; AI?: AiBinding; AI_MODEL?: string }
+interface Env { DB: D1Database; DEMO_BUSINESS_SLUG: string; ALLOWED_ORIGIN: string; DEMO_MODE?: string; OWNER_USERNAME?: string; OWNER_PASSWORD_HASH?: string; WEBHOOK_SECRET?: string; AI?: AiBinding; AI_MODEL?: string }
 interface Business { id: string; slug: string; name: string; description: string; timezone: string; currency: string; address: string; phone: string }
 interface Service { id: string; name: string; description: string; duration_min: number; price_minor: number }
 interface Appointment { id: string; reference: string; service_id: string; start_at: string; end_at: string; status: string; customer_contact: string; idempotency_key: string }
@@ -324,7 +324,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
       env.DB.prepare('SELECT id,name,description,duration_min,price_minor FROM services WHERE business_id = ? AND active = 1 ORDER BY sort_order,name').bind(b.id).all<Service>(),
       env.DB.prepare('SELECT weekday,open_min,close_min FROM working_hours WHERE business_id = ? ORDER BY weekday').bind(b.id).all(),
     ]);
-    return json({ business: { slug: b.slug, name: b.name, description: b.description, timezone: b.timezone, currency: b.currency, address: b.address, phone: b.phone }, services: services.results, hours: hours.results, aiAvailable: Boolean(env.AI) });
+    return json({ business: { slug: b.slug, name: b.name, description: b.description, timezone: b.timezone, currency: b.currency, address: b.address, phone: b.phone }, services: services.results, hours: hours.results, aiAvailable: Boolean(env.AI), demoMode: env.DEMO_MODE !== 'false' });
   }
 
   if (url.pathname === '/api/enquiries/analyze' && request.method === 'POST') {
@@ -382,6 +382,8 @@ async function handle(request: Request, env: Env): Promise<Response> {
     const parsed = bookingInput.safeParse(body);
     if (!parsed.success) return bad('Please check the booking details');
     const input = parsed.data;
+    if (env.DEMO_MODE !== 'false' && !/^[A-Za-z0-9._%+-]{1,80}@example\.invalid$/i.test(input.customerContact))
+      return bad('This demo accepts fictional email addresses ending in @example.invalid only');
     const s = await service(env.DB, b.id, input.serviceId);
     if (!s) return bad('Service not found', 404);
     if (!withinBookingWindow(input.date, b.timezone)) return bad('Date must be within the next 60 days');

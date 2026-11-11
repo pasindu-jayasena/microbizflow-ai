@@ -13,4 +13,5 @@ migrations_dir = "db/migrations"
 
 [vars]
 DEMO_BUSINESS_SLUG = "harbour-cut"
+DEMO_MODE = "true"
 ALLOWED_ORIGIN = "http://127.0.0.1:5173"

@@ -33,6 +33,8 @@ test('a customer can request, check, and cancel a real booking', async ({ page, 
   await page.locator('fieldset button').first().click();
   await page.getByLabel('Your name').fill('Fictional Browser Test');
   const contact = `browser-${crypto.randomUUID()}@example.invalid`;
+  await page.getByLabel('Email or phone').fill('real@example.com');
+  expect(await page.locator('#contact').evaluate((input: HTMLInputElement) => input.checkValidity())).toBe(false);
   await page.getByLabel('Email or phone').fill(contact);
   await page.getByRole('button', { name: /Request Signature haircut/ }).click();
   await expect(page.getByRole('heading', { name: 'Request received' })).toBeVisible();

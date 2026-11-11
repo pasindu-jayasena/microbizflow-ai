@@ -20,6 +20,8 @@ Implemented tables: businesses, services, resources, working_hours, appointments
 
 Public routes expose only publishable business and availability data. Owner routes use PBKDF2 password verification and hashed, expiring D1 sessions in HTTP-only, SameSite=Strict cookies. The API checks request origins, and production HTTPS adds the Secure cookie flag. Zod schemas validate API input; SQL parameters prevent injection. Request bodies are bounded, and database-backed per-client limits protect booking, assistant, and login endpoints. Logs omit secrets and private enquiry content. The assistant uses deterministic extraction by default; an optional Cloudflare AI binding requires visitor consent and validated structured output. AI cannot submit a booking. Customer-facing notification drafts require owner approval and use a mock delivery adapter; no external message is sent.
 
+The server defaults to demo mode. Public booking requests must use a reserved `@example.invalid` contact; this rule is configured through `DEMO_MODE` rather than shared booking logic. A production business would need a separate real-data privacy and deployment review before setting `DEMO_MODE=false`.
+
 ## Decisions pending implementation
 
 Customer lookup and cancellation use the booking reference plus a private random UUID shown at submission, sent in POST bodies and matched within the business. This is a bearer code: anyone who obtains both values can act on the booking. Stronger verified customer accounts and recovery remain future work. Cancellation is allowed for pending or confirmed bookings until 30 minutes before the visit; the database records the status change and audit event.
