@@ -42,6 +42,16 @@ class SchemaTest(unittest.TestCase):
         rows = self.db.execute("SELECT old_status,new_status FROM appointment_audit WHERE appointment_id='one' ORDER BY id").fetchall()
         self.assertEqual(rows, [(None, 'pending'), ('pending', 'confirmed')])
 
+    def test_demo_reset_has_system_audit_actor(self):
+        self.create('reset-one', 'chair_1')
+        self.db.execute("UPDATE appointments SET status='cancelled',customer_contact='demo-expired:' || id WHERE id='reset-one'")
+        actor = self.db.execute("SELECT actor FROM appointment_audit WHERE appointment_id='reset-one' AND new_status='cancelled'").fetchone()[0]
+        self.assertEqual(actor, 'system')
+        self.create('owner-one', 'chair_2')
+        self.db.execute("UPDATE appointments SET status='cancelled' WHERE id='owner-one'")
+        actor = self.db.execute("SELECT actor FROM appointment_audit WHERE appointment_id='owner-one' AND new_status='cancelled'").fetchone()[0]
+        self.assertEqual(actor, 'owner')
+
     def test_workflow_events_are_enqueued_with_appointments(self):
         self.create('one', 'chair_1')
         self.db.execute("UPDATE appointments SET status='confirmed' WHERE id='one'")

@@ -27,10 +27,12 @@
 - A durable mock CRM adapter, owner activity view, and retry path were pushed in commit `d1da8daee6bd6c8ccb2037624c9886e9d5ad104f`; its [Checks run](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/42939658492) passed.
 - A server-side demo contact guard and matching booking form validation passed local API smoke and all three browser tests. Commit `7f90b05aaaf6dd15ff4d02bd1c319193fc04413e` was pushed to `main` with verified owner author and committer; CI is pending.
 - A bounded hourly retention batch for old resolved customers and unbooked analyses passed local scheduled-path and manual retention checks. Commit `dce16d1f59fc4dc8099fc792d0dce1be9461f91c` was pushed to `main` with verified owner author and committer; CI is pending.
-- Demo bookings now replace submitted names and notes with fixed fictional values; local API smoke, all three browser tests, typecheck, lint, unit tests, Python tests, and build passed. Its commit and push are pending.
+- Demo bookings now replace submitted names and notes with fixed fictional values; local API smoke, all three browser tests, typecheck, lint, unit tests, Python tests, and build passed. Commit `a4c98dda559aacfe625b22b25ed09c108014bfe2` was pushed to `main` with verified owner author and committer; CI is pending.
+- A bounded scheduled reset for demo reservations older than 24 hours passed local D1 and audit tests, all three browser tests, typecheck, lint, unit tests, Python tests, and build. Its commit and push are pending.
+- GitHub CI for demo contact guard commit `7f90b05aaaf6dd15ff4d02bd1c319193fc04413e` failed while installing Chromium dependencies because the runner could not resolve Ubuntu package hosts. That job has been queued for rerun. Later CI jobs are still running.
 - Wrangler `whoami` confirmed the Cloudflare account associated with `pasindujayasena.biz@gmail.com` on 2026-11-11. A read-only subscription lookup returned HTTP 403 because the OAuth token lacks Billing Read. The user confirmed Workers Free in the dashboard and reported canceling R2 Paid; cancellation, other subscriptions, usage, and charges remain unverified. No Cloudflare resource has been provisioned or deployed; deployment requires a readiness report and explicit approval.
 - No public demo, live URL, or real message delivery is claimed.
 
 ## Next work
 
-Finish and publish demo data minimization, then implement a safe reset or isolation strategy for public visitor writes. Review free-tier and billing status and prepare a deployment readiness report. Provisioning and deployment await explicit user approval.
+Publish the demo reset strategy, then review free-tier and billing status and prepare a deployment readiness report. Provisioning and deployment await explicit user approval.

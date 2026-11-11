@@ -85,4 +85,30 @@ for (let attempt = 0; attempt < 15; attempt++) {
 }
 assert.ok(expired, 'Scheduled retention must erase the aged fictional customer');
 assert.ok(!(await owner('/api/owner/enquiries')).enquiries.some(item => item.id === analysisId));
-console.log('Local scheduled recovery and bounded retention passed for fictional workflow, webhook, customer, and enquiry records.');
+const resetContact = `reset-${crypto.randomUUID()}@example.invalid`;
+const resetBooking = await fetch(`${base}/api/bookings`, { method: 'POST', headers, body: JSON.stringify({
+  serviceId: 'svc_cut', date, time, customerName: 'Fictional Reset Test', customerContact: resetContact,
+  note: 'Synthetic note', idempotencyKey: crypto.randomUUID(),
+}) });
+assert.equal(resetBooking.status, 201);
+const { reference: resetReference, cancellationCode: resetCode } = await resetBooking.json();
+assert.match(resetReference, /^MBF-[A-F0-9]{8}$/);
+assert.ok((await owner(`/api/owner/customers/${encodeURIComponent(resetContact)}`)).customer);
+execFileSync('node', ['scripts/wrangler.mjs', 'd1', 'execute', 'microbizflow-local', '--config', 'wrangler.worker.toml', '--local',
+  '--command', `UPDATE appointments SET created_at='2024-01-01 00:00:00' WHERE reference='${resetReference}' AND status='pending'`], { stdio: 'pipe' });
+let resetRow;
+for (let attempt = 0; attempt < 20; attempt++) {
+  const scheduled = await fetch(`${base}/cdn-cgi/local/scheduled?format=json`);
+  assert.equal(scheduled.status, 200, await scheduled.text());
+  resetRow = (await owner(`/api/owner/appointments?q=${encodeURIComponent(resetReference)}`)).appointments.find(item => item.reference === resetReference);
+  if (resetRow?.status === 'cancelled') break;
+}
+assert.equal(resetRow?.status, 'cancelled');
+assert.equal(resetRow.customer_name, 'Deleted customer');
+assert.equal(resetRow.customer_note, '');
+assert.match(resetRow.customer_contact, /^demo-expired:/);
+assert.equal((await owner(`/api/owner/customers/${encodeURIComponent(resetContact)}`)).error, 'Customer not found');
+const oldCode = await fetch(`${base}/api/bookings/status`, { method: 'POST', headers,
+  body: JSON.stringify({ reference: resetReference, cancellationCode: resetCode }) });
+assert.equal(oldCode.status, 404);
+console.log('Local scheduled recovery, retention, and 24-hour demo reset passed for fictional records.');

@@ -22,6 +22,8 @@ Public routes expose only publishable business and availability data. Owner rout
 
 The server defaults to demo mode. Public booking requests must use a reserved `@example.invalid` contact, and the server replaces submitted names and notes with a fixed fictional name and an empty note. These rules are configured through `DEMO_MODE` rather than shared booking logic. A production business would need a separate real-data privacy and deployment review before setting `DEMO_MODE=false`.
 
+The scheduled Worker releases at most two demo reservations more than 24 hours after creation on each hourly run. A transactional D1 batch cancels and anonymizes each booking, invalidates its private code, removes linked assistant analyses, and deletes the customer record only if no other booking uses that contact. The audit trigger records the cancellation actor as `system`. This restores shared inventory for new demo visitors; the reset is disabled when `DEMO_MODE=false`. The Pages Function alone cannot execute this scheduled job.
+
 ## Decisions pending implementation
 
 Customer lookup and cancellation use the booking reference plus a private random UUID shown at submission, sent in POST bodies and matched within the business. This is a bearer code: anyone who obtains both values can act on the booking. Stronger verified customer accounts and recovery remain future work. Cancellation is allowed for pending or confirmed bookings until 30 minutes before the visit; the database records the status change and audit event.

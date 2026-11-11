@@ -8,7 +8,7 @@ import { approveNotification, deliverApproved, processEvent, processPendingEvent
 import { businessProfile, hoursConfig, serviceConfig } from '../../shared/config';
 import { processInboundWebhook, processPendingInboundWebhooks, verifyWebhook } from './webhooks';
 import { appointmentsCsv, listAppointments, parseAppointmentFilter } from './appointment-list';
-import { eraseCustomerDetails, purgeExpiredCustomers } from './privacy';
+import { eraseCustomerDetails, purgeExpiredCustomers, resetExpiredDemoBookings } from './privacy';
 import { processCrmEvent, processPendingCrmEvents } from './crm';
 
 interface Env { DB: D1Database; DEMO_BUSINESS_SLUG: string; ALLOWED_ORIGIN: string; DEMO_MODE?: string; OWNER_USERNAME?: string; OWNER_PASSWORD_HASH?: string; WEBHOOK_SECRET?: string; AI?: AiBinding; AI_MODEL?: string }
@@ -444,6 +444,7 @@ export default {
     const b = await business(env.DB,env.DEMO_BUSINESS_SLUG);
     if (!b) throw new Error('Business is not configured');
     // Keep each invocation small for Workers Free CPU and D1 request limits.
+    if (env.DEMO_MODE !== 'false') await resetExpiredDemoBookings(env.DB,b.id);
     await queueUpcomingReminders(env.DB,b.id);
     await processPendingEvents(env.DB,b.id,2);
     await processPendingInboundWebhooks(env.DB,b.id,2);

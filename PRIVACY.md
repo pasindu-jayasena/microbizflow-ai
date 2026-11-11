@@ -10,4 +10,6 @@ No live application or data processing service is currently deployed by this rep
 
 Owners can download a CSV containing names, contacts, notes, and booking history. This endpoint requires the owner session and uses `Cache-Control: no-store`; downloaded files must be handled as private data. Export is limited to 1,000 matching appointments per request.
 
+In demo mode, the standalone scheduled Worker releases at most two pending or confirmed reservations older than 24 hours per run. It cancels and anonymizes each booking, invalidates its private code, removes linked assistant analyses, and deletes its customer record if no other booking uses that fictional contact. The status and system audit event remain. This reset has only been exercised locally and will not run from Pages Functions alone.
+
 Mock CRM sync records hold only booking IDs, event keys, states, attempts, and timestamps. The adapter reads current customer details while processing but makes no external request. After a customer is deleted, any retried mock sync is skipped.
