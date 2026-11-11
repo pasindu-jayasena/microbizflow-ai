@@ -17,8 +17,9 @@ test('a customer can request, check, and cancel a real booking', async ({ page, 
   expect(date).not.toBe('');
   await page.goto('/');
   await expect(page.getByRole('heading', { name: /A good cut starts with time for you/ })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Smart assistance. A real person in control.' })).toBeVisible();
-  await expect(page.getByText('This public demo uses the no-key assistant.', { exact: false })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'From enquiry to appointment.' })).toBeVisible();
+  await expect(page.getByText('Suggestions make booking easier.', { exact: false })).toBeVisible();
+  await expect(page.getByText('Built-in suggestions')).toBeVisible();
   await expect.poll(() => page.locator('img[src="/salon-studio.webp"]').evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   await expect(page.getByText('Monday').locator('..')).toContainText('9:00 AM – 6:00 PM');
   await page.getByRole('link', { name: 'Book a visit' }).click();
