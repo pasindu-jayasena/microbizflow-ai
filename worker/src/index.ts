@@ -382,7 +382,8 @@ async function handle(request: Request, env: Env): Promise<Response> {
     const parsed = bookingInput.safeParse(body);
     if (!parsed.success) return bad('Please check the booking details');
     const input = parsed.data;
-    if (env.DEMO_MODE !== 'false' && !/^[A-Za-z0-9._%+-]{1,80}@example\.invalid$/i.test(input.customerContact))
+    const demoMode = env.DEMO_MODE !== 'false';
+    if (demoMode && !/^[A-Za-z0-9._%+-]{1,80}@example\.invalid$/i.test(input.customerContact))
       return bad('This demo accepts fictional email addresses ending in @example.invalid only');
     const s = await service(env.DB, b.id, input.serviceId);
     if (!s) return bad('Service not found', 404);
@@ -403,7 +404,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
         SELECT ?,?,?,?,r.id,?,?,?,?,?,? FROM resources r
         WHERE r.business_id = ? AND r.active = 1 AND NOT EXISTS (
           SELECT 1 FROM appointments a WHERE a.resource_id = r.id AND a.status IN ('pending','confirmed') AND a.start_at < ? AND ? < a.end_at
-        ) ORDER BY r.id LIMIT 1`).bind(id, reference, b.id, s.id, input.customerName, input.customerContact, input.note, interval.start_at, interval.end_at, input.idempotencyKey, b.id, interval.end_at, interval.start_at).run();
+        ) ORDER BY r.id LIMIT 1`).bind(id, reference, b.id, s.id, demoMode ? 'Demo visitor' : input.customerName, input.customerContact, demoMode ? '' : input.note, interval.start_at, interval.end_at, input.idempotencyKey, b.id, interval.end_at, interval.start_at).run();
     } catch {
       const repeat = await findExisting();
       if (repeat && repeat.service_id === s.id && repeat.start_at === interval.start_at && repeat.customer_contact === input.customerContact) return json({ reference: repeat.reference, status: repeat.status, cancellationCode: repeat.idempotency_key });
