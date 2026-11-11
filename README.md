@@ -1,36 +1,44 @@
 # MicroBizFlow AI
 
-**Intelligent Customer Management and Business Automation for Small Businesses.**
+**Booking, customer operations, and AI-assisted workflows for appointment-based businesses.**
 
-MicroBizFlow AI is an open-source booking and customer workflow application for small service businesses. Its first example is **Harbour Cut Studio**, a fictional two-chair barbershop in Sri Lanka. Business hours, time zone, services, and resources are stored as data so the booking logic can support other appointment-based businesses.
+MicroBizFlow AI is a deployed React and TypeScript application backed by a Cloudflare Worker API and D1. The showcase follows **Harbour Cut Studio**, a two-chair Colombo salon, from a customer's first enquiry through booking, owner review, and follow-up activity. Business hours, time zone, services, and resources are data-driven so the same booking engine can support other appointment-based businesses.
 
-## Current status
+**[Live booking app](https://microbizflow-ai.pages.dev/) · [Interactive owner preview](https://microbizflow-ai.pages.dev/owner-preview) · [Architecture](docs/architecture.md) · [Verified deployment](docs/deployment.md)**
 
-The public demo is live at **[microbizflow-ai.pages.dev](https://microbizflow-ai.pages.dev/)**. It uses fictional seed data and accepts booking contacts ending in `@example.invalid` only. The customer page now presents a salon-focused visual, service details, a booking assistant, and a clear AI and automation walkthrough. The standalone Worker has an hourly Cron Trigger for the bounded demo reset; production CPU usage still needs observation.
+> **Portfolio demo:** Harbour Cut Studio and its records are fictional; the studio image was generated for this showcase. Booking accepts only `@example.invalid` contacts. Notifications and CRM delivery are simulated, and no real customer messages are sent.
 
-Visitors can explore the owner workspace preview at `/owner-preview` without signing in. It uses four fictional records held only in the browser; the real owner dashboard and customer records remain protected. In local development, open `http://127.0.0.1:8788/owner-preview`.
+## Engineering highlights
 
-See the [deployment record](docs/deployment.md) for the verified release, free-tier limits, and remaining monitoring checks.
+| Area | Implemented and verified |
+| --- | --- |
+| Booking correctness | Configurable services and hours, business time zone, real slot availability, D1-enforced two-chair capacity, idempotent requests, private-code status lookup and cancellation |
+| Owner operations | Protected sessions and business-scoped routes for appointment decisions, service settings, customer records, CSV export, and analytics |
+| AI-ready assistance | English and Sinhala enquiry suggestions, optional validated Workers AI adapter, deterministic fallback, and a booking API that checks every suggested slot |
+| Workflow automation | Durable events, owner-approved customer drafts, reminder preparation, retry handling, and a mock outbox that never sends real messages |
+| Delivery | Cloudflare Pages, Workers, and D1 on Free services; TypeScript, lint, unit and schema tests, browser CI, and live HTTPS smoke checks |
 
-The application includes service browsing, real slot availability, pending booking requests, database-enforced chair capacity, idempotent submissions, reference-and-code status lookup and cancellation, owner sign-in, appointment decisions, searchable and exportable owner appointments, business-profile, service, and working-hours management, searchable customer records with private notes and owner-controlled deletion, owner analytics from stored records, a no-key English/Sinhala enquiry assistant with a structured owner review queue, approval-gated mock notifications and appointment reminder drafts, signed inbound webhook support, and a durable mock CRM sync. The live demo uses a fixed fictional visitor name, discards booking notes, and sends no real messages. Remote AI inference and inbound webhooks are optional and unconfigured in production. Real messaging and external CRM providers are still on the [roadmap](docs/roadmap.md). Do not use the public demo for real customer data.
+The authenticated owner workspace includes a structured enquiry review queue, private customer notes and deletion, workflow activity, and mock CRM sync. The public owner preview uses sample records held only in browser memory; it does not read private owner data. See the [testing record](docs/testing.md) for measured checks and the [roadmap](docs/roadmap.md) for integrations that remain future work.
 
-## AI and automation in the demo
+## Assistant and automation
 
-The **no-key assistant** reads a visitor's English or Sinhala enquiry and suggests a service, date, and time when it recognizes them. Missing details stay missing. A visitor must still choose an available slot; the booking API and D1 capacity rules make the actual decision. Cloudflare Workers AI is an optional adapter and is **not enabled** in the public demo.
+The live assistant extracts possible service and timing details from English or Sinhala enquiries without an external model. An optional Workers AI adapter is implemented but **not enabled** in this deployment. Suggestions never book an appointment: the visitor selects a real slot, and the API applies working-hours, timing, and capacity rules. Missing details remain open for the visitor to choose.
 
-Booking events create durable owner activity and customer draft notifications. The owner reviews appointment requests and must approve customer drafts. Delivery is recorded in a **mock outbox**; the public demo sends no real email or SMS and does not connect to an external CRM. The [interactive owner workflow preview](https://microbizflow-ai.pages.dev/owner-preview) uses fictional records in browser memory and never loads private customer data.
+Booking events create durable owner activity and customer drafts. The owner reviews requests and approves drafts before the mock delivery step. The [interactive workflow preview](https://microbizflow-ai.pages.dev/owner-preview) lets visitors inspect this sequence without signing in.
 
-![Salon-focused customer page at desktop width](docs/screenshots/customer-desktop.png)
+## Product preview
 
-[Customer page at mobile width](docs/screenshots/customer-mobile.png) · The studio image is generated and illustrative; Harbour Cut Studio is fictional.
+![Customer booking experience](docs/screenshots/customer-desktop.png)
 
-![No-key booking assistant suggesting a haircut and asking for missing details](docs/screenshots/booking-assistant.png)
+[Mobile customer view](docs/screenshots/customer-mobile.png)
 
-![Public AI and automation walkthrough with booking rules and owner review](docs/screenshots/ai-automation.png)
+![Booking assistant suggesting a haircut and asking for missing details](docs/screenshots/booking-assistant.png)
 
-![Interactive fictional owner approval workflow preview](docs/screenshots/owner-automation-preview.png)
+![AI and automation flow from enquiry to owner review](docs/screenshots/ai-automation.png)
 
-[Full owner workspace preview](docs/screenshots/owner-preview.png) · [Mobile owner preview](docs/screenshots/owner-preview-mobile.png) · [Owner sign-in](docs/screenshots/owner-login.png). All screenshots use fictional demonstration data.
+![Interactive owner approval workflow preview](docs/screenshots/owner-automation-preview.png)
+
+[Full owner workspace](docs/screenshots/owner-preview.png) · [Mobile owner view](docs/screenshots/owner-preview-mobile.png) · [Owner sign-in](docs/screenshots/owner-login.png). Screenshots use sample data.
 
 ## Local setup
 
