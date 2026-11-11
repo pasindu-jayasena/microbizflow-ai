@@ -30,10 +30,11 @@
 - Demo bookings now replace submitted names and notes with fixed fictional values; local API smoke, all three browser tests, typecheck, lint, unit tests, Python tests, and build passed. Commit `a4c98dda559aacfe625b22b25ed09c108014bfe2` was pushed to `main` with verified owner author and committer; CI is pending.
 - A bounded scheduled reset for demo reservations older than 24 hours passed local D1 and audit tests, all three browser tests, typecheck, lint, unit tests, Python tests, and build. Commit `ef538160b771c715487d6fc88c41603c2d77625f` was pushed to `main` with verified owner author and committer; CI is pending.
 - GitHub CI for demo contact guard commit `7f90b05aaaf6dd15ff4d02bd1c319193fc04413e` failed while installing Chromium dependencies because the runner could not resolve Ubuntu package hosts. That job has been queued for rerun. Later CI jobs are still running.
-- The standalone scheduled Worker is configured without public Worker or preview URLs. A local Wrangler dry run and scheduled-path test passed; its commit and push are pending.
+- The standalone scheduled Worker is configured without public Worker or preview URLs. A local Wrangler dry run and scheduled-path test passed. Commit `1fbbf02e824ee2b84914ab0bb81f12d19484edeb` was pushed to `main` with verified owner author and committer; CI is pending.
+- CI is being pinned to Ubuntu 24.04 after a transient package-host DNS failure on a 26.04 runner; a new remote run is required to verify the change.
 - Wrangler `whoami` confirmed the Cloudflare account associated with `pasindujayasena.biz@gmail.com` on 2026-11-11. A read-only subscription lookup returned HTTP 403 because the OAuth token lacks Billing Read. The user confirmed Workers Free in the dashboard and reported canceling R2 Paid; cancellation, other subscriptions, usage, and charges remain unverified. No Cloudflare resource has been provisioned or deployed; deployment requires a readiness report and explicit approval.
 - No public demo, live URL, or real message delivery is claimed.
 
 ## Next work
 
-Verify and publish the private scheduler configuration, then review free-tier and billing status and prepare a deployment readiness report. Provisioning and deployment await explicit user approval.
+Verify the pinned CI runner, then review free-tier and billing status and prepare a deployment readiness report. Provisioning and deployment await explicit user approval.
