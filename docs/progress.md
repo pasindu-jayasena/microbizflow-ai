@@ -25,10 +25,11 @@
 - Bounded hourly recovery of failed workflow and webhook events was pushed in commit `0411bf9e563a7943d575335542237cd1f2088fd6`; its [Checks run](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/42937935613) passed. The Cron Trigger definition is not deployed.
 - Human-approved mock appointment reminders were pushed in commit `e02150caa1bb4ae1b3f92004ae27688b116525d6`; its [Checks run](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/42938769424) passed.
 - A durable mock CRM adapter, owner activity view, and retry path were pushed in commit `d1da8daee6bd6c8ccb2037624c9886e9d5ad104f`; its [Checks run](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/42939658492) passed.
-- A server-side demo contact guard and matching booking form validation passed local API smoke and all three browser tests. Its commit and push are pending.
+- A server-side demo contact guard and matching booking form validation passed local API smoke and all three browser tests. Commit `7f90b05aaaf6dd15ff4d02bd1c319193fc04413e` was pushed to `main` with verified owner author and committer; CI is pending.
+- A bounded hourly retention batch for old resolved customers and unbooked analyses passed local scheduled-path and manual retention checks; its commit and push are pending.
 - Wrangler `whoami` confirmed the Cloudflare account associated with `pasindujayasena.biz@gmail.com` on 2026-11-11. A read-only subscription lookup returned HTTP 403 because the OAuth token lacks Billing Read. The user confirmed Workers Free in the dashboard and reported canceling R2 Paid; cancellation, other subscriptions, usage, and charges remain unverified. No Cloudflare resource has been provisioned or deployed; deployment requires a readiness report and explicit approval.
 - No public demo, live URL, or real message delivery is claimed.
 
 ## Next work
 
-Finish and publish the demo contact guard separately. Then review demo reset/isolation, free-tier and billing status, and prepare a deployment readiness report. Provisioning and deployment await explicit user approval.
+Publish scheduled retention separately. Then review demo reset/isolation, free-tier and billing status, and prepare a deployment readiness report. Provisioning and deployment await explicit user approval.

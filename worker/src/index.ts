@@ -447,5 +447,6 @@ export default {
     await processPendingEvents(env.DB,b.id,2);
     await processPendingInboundWebhooks(env.DB,b.id,2);
     await processPendingCrmEvents(env.DB,b.id,2);
+    await purgeExpiredCustomers(env.DB,b.id,Date.now(),1,10);
   },
 } satisfies ExportedHandler<Env>;

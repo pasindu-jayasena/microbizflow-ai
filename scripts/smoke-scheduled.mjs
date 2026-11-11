@@ -19,12 +19,13 @@ for (let offset = 2; offset <= 9; offset++) {
   if (available.slots?.length) { time = available.slots[0]; break; }
 }
 assert.ok(time, 'A future slot is required');
+const contact = `scheduled-${crypto.randomUUID()}@example.invalid`;
 const booked = await fetch(`${base}/api/bookings`, { method: 'POST', headers, body: JSON.stringify({
   serviceId: 'svc_cut', date, time, customerName: 'Fictional Scheduled Recovery Test',
-  customerContact: `scheduled-${crypto.randomUUID()}@example.invalid`, note: '', idempotencyKey: crypto.randomUUID(),
+  customerContact: contact, note: '', idempotencyKey: crypto.randomUUID(),
 }) });
 assert.equal(booked.status, 201);
-const { reference } = await booked.json();
+const { reference, cancellationCode } = await booked.json();
 const login = await fetch(`${base}/api/owner/login`, { method: 'POST', headers, body: JSON.stringify({ username: 'owner', password }) });
 assert.equal(login.status, 200);
 const cookie = login.headers.get('set-cookie')?.split(';')[0];
@@ -62,4 +63,26 @@ for (let attempt = 0; attempt < 5 && (await readWebhook()).state !== 'done'; att
 }
 assert.equal((await readWebhook()).state, 'done');
 assert.equal((await owner('/api/owner/webhooks')).tasks.filter(item => item.reference === reference).length, 1);
-console.log('Local scheduled recovery passed: failed workflow and webhook retried without duplicate notice or task.');
+const cancelled = await fetch(`${base}/api/bookings/cancel`, { method: 'POST', headers,
+  body: JSON.stringify({ reference, cancellationCode }) });
+assert.equal(cancelled.status, 200);
+const analyzed = await fetch(`${base}/api/enquiries/analyze`, { method: 'POST', headers,
+  body: JSON.stringify({ text: 'I need a haircut tomorrow', consentExternalAI: false }) });
+assert.equal(analyzed.status, 200);
+const { analysisId } = await analyzed.json();
+assert.match(reference, /^MBF-[A-F0-9]{8}$/);
+assert.match(analysisId, /^[0-9a-f-]{36}$/);
+execFileSync('node', ['scripts/wrangler.mjs', 'd1', 'execute', 'microbizflow-local', '--config', 'wrangler.worker.toml', '--local',
+  '--command', `UPDATE appointments SET start_at='2024-01-01T00:00:00.000Z',end_at='2024-01-01T00:30:00.000Z' WHERE reference='${reference}' AND status='cancelled'`], { stdio: 'pipe' });
+execFileSync('node', ['scripts/wrangler.mjs', 'd1', 'execute', 'microbizflow-local', '--config', 'wrangler.worker.toml', '--local',
+  '--command', `UPDATE enquiry_analyses SET created_at='2024-01-01 00:00:00' WHERE id='${analysisId}' AND appointment_id IS NULL`], { stdio: 'pipe' });
+let expired = false;
+for (let attempt = 0; attempt < 15; attempt++) {
+  const scheduled = await fetch(`${base}/cdn-cgi/local/scheduled?format=json`);
+  assert.equal(scheduled.status, 200, await scheduled.text());
+  expired = (await owner(`/api/owner/customers/${encodeURIComponent(contact)}`)).error === 'Customer not found';
+  if (expired) break;
+}
+assert.ok(expired, 'Scheduled retention must erase the aged fictional customer');
+assert.ok(!(await owner('/api/owner/enquiries')).enquiries.some(item => item.id === analysisId));
+console.log('Local scheduled recovery and bounded retention passed for fictional workflow, webhook, customer, and enquiry records.');
