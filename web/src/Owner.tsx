@@ -3,6 +3,7 @@ import { Automation } from './Automation';
 import { OwnerSettings } from './OwnerSettings';
 import { Customers } from './Customers';
 import { Analytics } from './Analytics';
+import { WebhookActivity } from './WebhookActivity';
 
 type Appointment = { id: string; reference: string; start_at: string; end_at: string; status: string; customer_name: string; customer_contact: string; customer_note: string; service_name: string; resource_name: string };
 type Summary = { total: number; pending: number; confirmed: number; cancelled: number };
@@ -69,6 +70,7 @@ export function Owner() {
       <Automation refreshToken={refreshToken} />
       <Customers timezone={timezone} />
       <Analytics refreshToken={refreshToken} />
+      <WebhookActivity refreshToken={refreshToken} />
       <OwnerSettings />
     </main>}
   </div>;

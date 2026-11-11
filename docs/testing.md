@@ -14,6 +14,8 @@ With the same variable set, `npm run test:e2e` also signs in and saves the busin
 
 `npm run test:cancellation:local` checks that a wrong private code cannot find a booking, the right code can read its status and cancel it, and a repeated cancellation is rejected. The browser test also checks the customer-facing status and cancellation controls.
 
+`npm run test:webhook:local` requires `LOCAL_OWNER_PASSWORD` and `LOCAL_WEBHOOK_SECRET` matching a synthetic `WEBHOOK_SECRET` in ignored `.dev.vars`. It creates a fictional booking, signs a follow-up event, rejects missing or stale signatures, checks duplicate delivery, and completes the owner task. The unit suite tests signature validation without a running server.
+
 Latest measured local results on 2026-11-11: TypeScript check passed; ESLint passed; Vitest 20 tests passed; Python unittest 4 tests passed; Vite build passed; local booking, no-key AI, and approval workflow smoke tests passed; Pages owner route returned a protected list after login. `npm install` reported zero audit findings after the patched development dependency override.
 
 Automated browser end-to-end coverage, CSRF tests, and scheduled workflow recovery remain to be added. Workflow tests cover database event creation, customer draft approval, mock delivery failure and retry. The AI suite covers invalid model output, provider failures, timeouts, and limited retry behavior. The deployed demo also needs an end-to-end booking check against its public HTTPS URL. GitHub CI passed for commits `bdac60d7b772dd7aa0a6fc639e38c85f74b6e0bf` and `29aba32ea4e7b85450d7d55d0cf4443d331496c0`.

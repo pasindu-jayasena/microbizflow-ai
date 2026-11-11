@@ -6,6 +6,7 @@ test('owner can review and save business profile, service, and hours settings', 
   await page.getByLabel('Password').fill(process.env.LOCAL_OWNER_PASSWORD!);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('heading', { name: 'Services and working hours' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Inbound webhooks' })).toBeVisible();
   const businessName = await page.getByRole('textbox', { name: 'Business name' }).inputValue();
   await page.getByRole('button', { name: 'Save business profile' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Business profile saved.' })).toBeVisible();

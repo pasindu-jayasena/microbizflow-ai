@@ -6,7 +6,7 @@ MicroBizFlow AI is an open-source booking and customer workflow application for 
 
 ## Current status
 
-A working **local MVP** includes service browsing, real slot availability, pending booking requests, database-enforced chair capacity, idempotent submissions, reference-and-code status lookup and cancellation, owner sign-in, appointment decisions, business-profile, service, and working-hours management, searchable customer records with private notes, owner analytics from stored records, a no-key English/Sinhala enquiry assistant, and approval-gated mock notifications. The public repository exists, but **no public demo has been deployed**. Remote AI inference is optional and unconfigured. Real messaging and external CRM integrations are still on the [roadmap](docs/roadmap.md). Do not use the current build for real customer data.
+A working **local MVP** includes service browsing, real slot availability, pending booking requests, database-enforced chair capacity, idempotent submissions, reference-and-code status lookup and cancellation, owner sign-in, appointment decisions, business-profile, service, and working-hours management, searchable customer records with private notes, owner analytics from stored records, a no-key English/Sinhala enquiry assistant, approval-gated mock notifications, and optional signed inbound webhooks that create owner follow-up tasks. The public repository exists, but **no public demo has been deployed**. Remote AI inference and inbound webhooks are optional and unconfigured in the checked-in deployment settings. Real messaging and external CRM integrations are still on the [roadmap](docs/roadmap.md). Do not use the current build for real customer data.
 
 ![Customer page at desktop width](docs/screenshots/customer-desktop.png)
 
@@ -49,6 +49,7 @@ npm run test:config:local
 npm run test:customers:local
 npm run test:analytics:local
 npm run test:cancellation:local
+npm run test:webhook:local
 ```
 
 The Playwright suite creates a fictional browser booking and verifies owner routes require sign-in. It starts Pages if needed, uses installed Chrome on Windows, and runs in CI after local D1 migration and seed. On Linux, install Chromium with `npx playwright install chromium`. The integration smoke test creates fictional bookings in the local D1 database. It checks that simultaneous requests fill two chairs, a third conflicts, and an idempotent replay returns the same reference. [Testing notes](docs/testing.md) record the current results and limits.
@@ -84,6 +85,7 @@ See [architecture decisions](docs/architecture.md), [deployment prerequisites](d
 - `/api/owner/*` — login, session, logout, private appointments, summary, and state changes
 - `/api/owner/customers*` — protected customer search, appointment history, and private notes
 - `GET /api/owner/analytics` — protected booking and workflow metrics calculated from stored records
+- `POST /api/webhooks/inbound` — optional HMAC-signed follow-up events; disabled without a server secret
 
 Owner sessions use HTTP-only cookies. Public booking requests and login attempts have database-backed limits. The interface shows pending requests accurately; it does not send customer messages.
 

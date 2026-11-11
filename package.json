@@ -18,6 +18,7 @@
     "test:customers:local": "node scripts/smoke-customers.mjs",
     "test:analytics:local": "node scripts/smoke-analytics.mjs",
     "test:cancellation:local": "node scripts/smoke-cancellation.mjs",
+    "test:webhook:local": "node scripts/smoke-webhook.mjs",
     "test:e2e": "playwright test",
     "owner:setup:local": "node scripts/setup-owner.mjs",
     "db:migrate:local": "node scripts/wrangler.mjs d1 migrations apply microbizflow-local --config wrangler.worker.toml --local",

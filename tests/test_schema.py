@@ -69,6 +69,14 @@ class SchemaTest(unittest.TestCase):
         self.assertEqual(row, ('Fictional Visitor Two', 'DEMO@example.invalid', 'Prefers mornings'))
         self.assertEqual(self.db.execute('SELECT COUNT(*) FROM customer_records').fetchone()[0], 1)
 
+    def test_webhook_event_and_task_are_unique_per_business(self):
+        self.create('one', 'chair_1')
+        self.db.execute("INSERT INTO inbound_webhooks(business_id,external_id,appointment_id,event_type) VALUES('biz_demo','event-1','one','booking.followup_requested')")
+        self.db.execute("INSERT INTO owner_tasks(business_id,appointment_id,external_id,title) VALUES('biz_demo','one','event-1','Review')")
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.db.execute("INSERT INTO owner_tasks(business_id,appointment_id,external_id,title) VALUES('biz_demo','one','event-1','Review')")
+        self.assertEqual(self.db.execute('SELECT COUNT(*) FROM owner_tasks').fetchone()[0], 1)
+
 
 if __name__ == '__main__':
     unittest.main()

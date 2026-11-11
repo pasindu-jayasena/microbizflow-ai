@@ -6,8 +6,9 @@ import { Temporal } from '@js-temporal/polyfill';
 import { analyzeEnquiry, cloudflareProvider, type AiBinding } from './ai';
 import { approveNotification, deliverApproved, processEvent, processPendingEvents } from './workflows';
 import { businessProfile, hoursConfig, serviceConfig } from '../../shared/config';
+import { processInboundWebhook, processPendingInboundWebhooks, verifyWebhook } from './webhooks';
 
-interface Env { DB: D1Database; DEMO_BUSINESS_SLUG: string; ALLOWED_ORIGIN: string; OWNER_USERNAME?: string; OWNER_PASSWORD_HASH?: string; AI?: AiBinding; AI_MODEL?: string }
+interface Env { DB: D1Database; DEMO_BUSINESS_SLUG: string; ALLOWED_ORIGIN: string; OWNER_USERNAME?: string; OWNER_PASSWORD_HASH?: string; WEBHOOK_SECRET?: string; AI?: AiBinding; AI_MODEL?: string }
 interface Business { id: string; slug: string; name: string; description: string; timezone: string; currency: string; address: string; phone: string }
 interface Service { id: string; name: string; description: string; duration_min: number; price_minor: number }
 interface Appointment { id: string; reference: string; service_id: string; start_at: string; end_at: string; status: string; customer_contact: string; idempotency_key: string }
@@ -16,9 +17,9 @@ const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Cont
 const json = (value: unknown, status = 200, extra: HeadersInit = {}) => new Response(JSON.stringify(value), { status, headers: { ...headers, ...extra } });
 const bad = (error: string, status = 400) => json({ error }, status);
 
-async function readJson(request: Request): Promise<unknown> {
+async function readText(request: Request): Promise<string> {
   const reader = request.body?.getReader();
-  if (!reader) return null;
+  if (!reader) return '';
   const decoder = new TextDecoder();
   let text = '';
   let bytes = 0;
@@ -29,7 +30,12 @@ async function readJson(request: Request): Promise<unknown> {
     if (bytes > 8192) { await reader.cancel(); throw new Error('payload-too-large'); }
     text += decoder.decode(value, { stream: true });
   }
-  try { return JSON.parse(text + decoder.decode()); } catch { return null; }
+  return text + decoder.decode();
+}
+
+async function readJson(request: Request): Promise<unknown> {
+  const raw = await readText(request);
+  try { return JSON.parse(raw); } catch { return null; }
 }
 
 async function business(db: D1Database, slug: string): Promise<Business | null> {
@@ -56,6 +62,27 @@ async function handle(request: Request, env: Env): Promise<Response> {
   const b = await business(env.DB, env.DEMO_BUSINESS_SLUG);
   if (!b) return bad('Business is not configured', 503);
 
+  if (url.pathname === '/api/webhooks/inbound' && request.method === 'POST') {
+    if (!env.WEBHOOK_SECRET || env.WEBHOOK_SECRET.length < 32) return bad('Webhook integration is not configured', 503);
+    const body = await readText(request);
+    if (!await verifyWebhook(request,body,env.WEBHOOK_SECRET)) return bad('Invalid webhook signature', 401);
+    let data: unknown;
+    try { data = JSON.parse(body); } catch { return bad('Invalid webhook payload'); }
+    const parsed = z.object({ id: z.uuid(), type: z.literal('booking.followup_requested'), reference: z.string().regex(/^MBF-[A-F0-9]{8}$/) }).safeParse(data);
+    if (!parsed.success) return bad('Invalid webhook payload');
+    const appointment = await env.DB.prepare('SELECT id FROM appointments WHERE business_id=? AND reference=?').bind(b.id,parsed.data.reference).first<{ id: string }>();
+    if (!appointment) return bad('Booking not found', 404);
+    const created = await env.DB.prepare(`INSERT OR IGNORE INTO inbound_webhooks(business_id,external_id,appointment_id,event_type)
+      VALUES(?,?,?,'booking.followup_requested')`).bind(b.id,parsed.data.id,appointment.id).run();
+    if (created.meta.changes < 1) {
+      const existing = await env.DB.prepare('SELECT appointment_id,state FROM inbound_webhooks WHERE business_id=? AND external_id=?').bind(b.id,parsed.data.id).first<{ appointment_id: string; state: string }>();
+      if (!existing || existing.appointment_id !== appointment.id) return bad('Webhook ID was used for another booking', 409);
+      return json({ accepted: true, duplicate: true, state: existing.state });
+    }
+    const processed = await processInboundWebhook(env.DB,b.id,parsed.data.id);
+    return json({ accepted: true, duplicate: false, state: processed ? 'done' : 'failed' }, processed ? 201 : 202);
+  }
+
   if (url.pathname === '/api/owner/login' && request.method === 'POST') {
     const data = z.object({ username: z.string().min(1).max(100), password: z.string().min(1).max(200) }).safeParse(await readJson(request));
     if (!data.success) return bad('Invalid login details');
@@ -66,6 +93,26 @@ async function handle(request: Request, env: Env): Promise<Response> {
     if (url.pathname === '/api/owner/session' && request.method === 'GET') return json({ authenticated: ownedBusinessId === b.id });
     if (url.pathname === '/api/owner/logout' && request.method === 'POST') return logout(request, env);
     if (ownedBusinessId !== b.id) return bad('Sign in required', 401);
+    if (url.pathname === '/api/owner/webhooks' && request.method === 'GET') {
+      const [events,tasks] = await Promise.all([
+        env.DB.prepare(`SELECT w.external_id,w.event_type,w.state,w.attempts,w.last_error,w.created_at,a.reference
+          FROM inbound_webhooks w JOIN appointments a ON a.id=w.appointment_id
+          WHERE w.business_id=? ORDER BY w.created_at DESC LIMIT 50`).bind(b.id).all(),
+        env.DB.prepare(`SELECT t.id,t.title,t.state,t.created_at,t.completed_at,a.reference
+          FROM owner_tasks t JOIN appointments a ON a.id=t.appointment_id
+          WHERE t.business_id=? ORDER BY t.created_at DESC,t.id DESC LIMIT 50`).bind(b.id).all(),
+      ]);
+      return json({ events: events.results, tasks: tasks.results, configured: Boolean(env.WEBHOOK_SECRET && env.WEBHOOK_SECRET.length >= 32) });
+    }
+    if (url.pathname === '/api/owner/webhooks/run' && request.method === 'POST') return json(await processPendingInboundWebhooks(env.DB,b.id));
+    const taskMatch = url.pathname.match(/^\/api\/owner\/tasks\/(\d+)\/complete$/);
+    if (taskMatch && request.method === 'POST') {
+      const id = Number(taskMatch[1]);
+      if (!Number.isSafeInteger(id) || id < 1) return bad('Invalid task');
+      const result = await env.DB.prepare("UPDATE owner_tasks SET state='done',completed_at=CURRENT_TIMESTAMP WHERE id=? AND business_id=? AND state='open'").bind(id,b.id).run();
+      if (result.meta.changes < 1) return bad('Task not found or already completed', 409);
+      return json({ id, state: 'done' });
+    }
     if (url.pathname === '/api/owner/config' && request.method === 'GET') {
       const [services, hours] = await Promise.all([
         env.DB.prepare('SELECT id,name,description,duration_min,price_minor,active FROM services WHERE business_id=? ORDER BY sort_order,name').bind(b.id).all(),
