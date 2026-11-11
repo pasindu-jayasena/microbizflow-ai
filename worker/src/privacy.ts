@@ -21,8 +21,11 @@ export async function eraseCustomerDetails(db: D1Database, businessId: string, c
   return results[2]!.meta.changes > 0 ? results[1]!.meta.changes : null;
 }
 
-export async function purgeExpiredCustomers(db: D1Database, businessId: string, now = Date.now()): Promise<{ cutoff: string; deletedCustomers: number; anonymizedBookings: number }> {
+export async function purgeExpiredCustomers(db: D1Database, businessId: string, now = Date.now()): Promise<{ cutoff: string; deletedCustomers: number; anonymizedBookings: number; deletedEnquiries: number }> {
   const cutoff = new Date(now - retentionDays * 86_400_000).toISOString();
+  const enquiries = await db.prepare(`DELETE FROM enquiry_analyses WHERE id IN (
+    SELECT id FROM enquiry_analyses WHERE business_id=? AND appointment_id IS NULL AND created_at<datetime(?)
+    ORDER BY created_at,id LIMIT 100)`).bind(businessId,cutoff).run();
   const due = await db.prepare(`SELECT c.contact_key FROM customer_records c WHERE c.business_id=?
     AND EXISTS (SELECT 1 FROM appointments a WHERE a.business_id=c.business_id AND lower(trim(a.customer_contact))=c.contact_key)
     AND NOT EXISTS (SELECT 1 FROM appointments a WHERE a.business_id=c.business_id AND lower(trim(a.customer_contact))=c.contact_key
@@ -34,5 +37,5 @@ export async function purgeExpiredCustomers(db: D1Database, businessId: string, 
     const bookings = await eraseCustomerDetails(db,businessId,customer.contact_key,cutoff);
     if (bookings !== null) { deletedCustomers++; anonymizedBookings += bookings; }
   }
-  return { cutoff, deletedCustomers, anonymizedBookings };
+  return { cutoff, deletedCustomers, anonymizedBookings, deletedEnquiries: enquiries.meta.changes };
 }

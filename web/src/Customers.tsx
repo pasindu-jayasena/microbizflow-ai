@@ -65,10 +65,10 @@ export function Customers({ timezone }: { timezone: string }) {
     if (!window.confirm('Erase eligible customer details for bookings older than 365 days? Up to 10 customer records are processed per run. This cannot be undone.')) return;
     setBusy(true); setError(''); setMessage('');
     try {
-      const result = await api<{ deletedCustomers: number; anonymizedBookings: number }>('/api/owner/retention/run', { method: 'POST' });
+      const result = await api<{ deletedCustomers: number; anonymizedBookings: number; deletedEnquiries: number }>('/api/owner/retention/run', { method: 'POST' });
       setDetail(null); setNotes('');
       await search(query);
-      setMessage(`Retention run erased ${result.deletedCustomers} customer record(s) and anonymized ${result.anonymizedBookings} booking(s).`);
+      setMessage(`Retention run erased ${result.deletedCustomers} customer record(s), anonymized ${result.anonymizedBookings} booking(s), and removed ${result.deletedEnquiries} unbooked assistant record(s).`);
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not run retention'); }
     finally { setBusy(false); }
   }
@@ -78,7 +78,7 @@ export function Customers({ timezone }: { timezone: string }) {
   return <section className="mt-12" aria-labelledby="customers-title">
     <p className="eyebrow">Customer records</p><h2 id="customers-title" className="mt-2 text-2xl font-semibold">Customers</h2>
     <p className="mt-2 text-sm text-slate-600">Contacts are grouped by their normalized booking contact. Notes are visible only to signed-in owners.</p>
-    <div className="mt-4 rounded-2xl border border-pine/20 bg-white p-4"><h3 className="font-semibold">Data retention</h3><p className="mt-1 text-sm text-slate-600">Erase customer details when every booking is resolved and more than 365 days old. Each run handles up to 10 customers. Booking status and audit counts remain.</p><button type="button" disabled={busy} onClick={() => void runRetention()} className="mt-3 rounded-full border border-pine px-4 py-2 text-sm font-semibold text-pine disabled:opacity-50">Run retention now</button></div>
+    <div className="mt-4 rounded-2xl border border-pine/20 bg-white p-4"><h3 className="font-semibold">Data retention</h3><p className="mt-1 text-sm text-slate-600">Erase customer details when every booking is resolved and more than 365 days old. Expire unbooked assistant analyses after 365 days. Each run handles up to 10 customers and 100 unbooked analyses. Booking status and audit counts remain.</p><button type="button" disabled={busy} onClick={() => void runRetention()} className="mt-3 rounded-full border border-pine px-4 py-2 text-sm font-semibold text-pine disabled:opacity-50">Run retention now</button></div>
     <form className="mt-5 flex max-w-xl gap-2" onSubmit={event => { event.preventDefault(); void search(query); }}><label className="sr-only" htmlFor="customer-search">Search customers</label><input id="customer-search" className="field" maxLength={100} value={query} onChange={event => setQuery(event.target.value)} placeholder="Name or contact" /><button className="rounded-full bg-pine px-5 py-2 text-sm font-semibold text-white" type="submit">Search</button></form>
     {error && <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}
     {message && <p role="status" className="mt-4 text-sm text-pine">{message}</p>}
