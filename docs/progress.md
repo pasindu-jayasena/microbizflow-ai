@@ -33,10 +33,10 @@
 - The standalone scheduled Worker is configured without public Worker or preview URLs. A local Wrangler dry run and scheduled-path test passed. Commit `1fbbf02e824ee2b84914ab0bb81f12d19484edeb` was pushed to `main` with verified owner author and committer; CI is pending.
 - CI was pinned to Ubuntu 24.04 in commit `6df16303c0e9e58d975adde181f05c13f714cfcf` and switched to the runner's installed Chrome in commit `f393357376f0bd4afc7150807e0c599b22eb3e50`. Both were pushed with verified owner identity. Local browser tests, typecheck, lint, and YAML parsing passed; the [reviewed source CI run](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/43058314575) passed all steps.
 - The [deployment readiness report](deployment-readiness.md) was published in commit `1337da84c30e70e4a147820f0fee63016bd7128e` with verified owner author and committer. It records account, service, configuration, billing, CI, cost, and live-verification gates.
-- A public, browser-only owner workspace preview with fictional records passed four local browser tests, typecheck, lint, unit and schema tests, build, and visual review at desktop and mobile widths; its commit and push are pending.
+- A public, browser-only owner workspace preview with fictional records passed four local browser tests, typecheck, lint, unit and schema tests, build, and visual review at desktop and mobile widths. Commit `187960d8f7ef270c79cbc66a8b007271ce8bc023` was pushed to `main` with verified owner author and committer; its [GitHub CI run](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/43059740756) passed.
 - Wrangler `whoami` confirmed the Cloudflare account associated with `pasindujayasena.biz@gmail.com` on 2026-11-11. A read-only subscription lookup returned HTTP 403 because the OAuth token lacks Billing Read. The user confirmed Workers Free in the dashboard and reported canceling R2 Paid; cancellation, other subscriptions, usage, and charges remain unverified. No Cloudflare resource has been provisioned or deployed; deployment requires a readiness report and explicit approval.
 - No public demo, live URL, or real message delivery is claimed.
 
 ## Next work
 
-Publish the safe owner preview, then obtain independent billing confirmation. Provisioning and deployment await explicit user approval.
+Obtain independent billing confirmation and explicit approval of the deployment readiness report before provisioning. Then configure and test the Free Cloudflare deployment.

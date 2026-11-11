@@ -4,13 +4,13 @@
 
 ## Verified
 
-- GitHub CLI authenticated as `pasindu-jayasena`. The public repository is `pasindu-jayasena/microbizflow-ai`. The reviewed application source commit is `f393357376f0bd4afc7150807e0c599b22eb3e50`, with Pasindu Jayasena and his GitHub-verified email as both author and committer. The working tree was clean after that push.
+- GitHub CLI authenticated as `pasindu-jayasena`. The public repository is `pasindu-jayasena/microbizflow-ai`. The reviewed application source commit is `187960d8f7ef270c79cbc66a8b007271ce8bc023`, with Pasindu Jayasena and his GitHub-verified email as both author and committer. The working tree was clean after that push.
 - Wrangler `whoami` authenticated the Cloudflare account associated with `pasindujayasena.biz@gmail.com`. Read-only `d1 list` and `pages project list` returned no resources. A read-only deployment lookup returned “This Worker does not exist on your account” for `microbizflow-api`.
 - The local Pages Function and standalone scheduled Worker share the tested TypeScript API. D1 migrations `0001`–`0009` applied locally. Fictional seed data is labeled. The Worker dry run built a 1,076.63 KiB upload without deployment.
-- Local checks passed: TypeScript, ESLint, 28 Vitest tests, 9 Python schema tests, production Vite build, and all 3 Playwright browser flows with a synthetic owner. Local HTTP smoke tests covered booking concurrency, owner authorization, privacy, signed webhooks, mock workflows and CRM, and bounded scheduled retention and 24-hour demo reset.
-- [GitHub CI for the reviewed source commit](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/43058314575) passed all steps, including local D1 migration, seed, and all three browser tests on Ubuntu 24.04.
+- Local checks passed: TypeScript, ESLint, 28 Vitest tests, 9 Python schema tests, production Vite build, and all 4 Playwright browser flows with a synthetic owner. Local HTTP smoke tests covered booking concurrency, owner authorization, privacy, signed webhooks, mock workflows and CRM, and bounded scheduled retention and 24-hour demo reset.
+- [GitHub CI for the reviewed source commit](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/43059740756) passed all steps, including local D1 migration, seed, and all four browser tests on Ubuntu 24.04.
 - Demo mode is enabled by default and in both Wrangler configs. It accepts only reserved `@example.invalid` booking contacts, stores a fixed fictional name, discards booking notes, and sends no real messages. The scheduled Worker has `workers_dev = false` and `preview_urls = false`.
-- A public owner workspace preview was subsequently added with four fictional browser-only records and no owner API requests. All four local browser tests pass; a GitHub CI run for this addition is still required.
+- The public owner workspace preview uses four fictional browser-only records and makes no owner API requests. Its desktop and mobile layouts were reviewed locally. A tracked-file scan found no local environment files, Wrangler state, token patterns, or private-key markers; this is a targeted check rather than a complete security audit.
 
 ## Required services and free limits
 
