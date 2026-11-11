@@ -25,6 +25,16 @@ export async function ownerBusiness(request: Request, env: AuthEnv): Promise<str
 }
 
 export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  if (stored.startsWith('random-sha256:')) {
+    const parts = stored.split(':');
+    const saltHex = parts[1] ?? '';
+    const expectedHex = parts[2] ?? '';
+    if (parts.length !== 3 || !/^[A-Za-z0-9_-]{43}$/.test(password) || !/^[0-9a-f]{32}$/.test(saltHex) || !/^[0-9a-f]{64}$/.test(expectedHex)) return false;
+    const actual = await sha256(`${saltHex}:${password}`);
+    let difference = 0;
+    for (let i = 0; i < 64; i++) difference |= actual.charCodeAt(i) ^ expectedHex.charCodeAt(i);
+    return difference === 0;
+  }
   const [saltHex, expectedHex] = stored.split(':');
   if (!saltHex || !expectedHex || !/^[0-9a-f]{32}$/.test(saltHex) || !/^[0-9a-f]{64}$/.test(expectedHex)) return false;
   const salt = Uint8Array.from(saltHex.match(/../g)!.map(value => parseInt(value, 16)));

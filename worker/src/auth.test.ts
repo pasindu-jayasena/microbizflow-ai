@@ -13,4 +13,14 @@ describe('owner password verification', () => {
     expect(await verifyPassword('wrong-password', stored)).toBe(false);
     expect(await verifyPassword('fictional-test-password', 'malformed')).toBe(false);
   });
+  it('accepts only a generated-length production secret with a matching salted hash', async () => {
+    const password = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq';
+    const salt = '0123456789abcdef0123456789abcdef';
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${salt}:${password}`)));
+    const stored = `random-sha256:${salt}:${hex(digest)}`;
+    expect(await verifyPassword(password, stored)).toBe(true);
+    expect(await verifyPassword('wrong-password', stored)).toBe(false);
+    expect(await verifyPassword(password.slice(1), stored)).toBe(false);
+    expect(await verifyPassword(password, 'random-sha256:bad:bad')).toBe(false);
+  });
 });
