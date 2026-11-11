@@ -6,7 +6,7 @@ MicroBizFlow AI is an open-source booking and customer workflow application for 
 
 ## Current status
 
-The public demo is live at **[microbizflow-ai.pages.dev](https://microbizflow-ai.pages.dev/)**. It uses fictional seed data and accepts booking contacts ending in `@example.invalid` only. The standalone Worker has an hourly Cron Trigger for the bounded demo reset; the trigger is deployed, while its first live run and CPU usage still need observation.
+The public demo is live at **[microbizflow-ai.pages.dev](https://microbizflow-ai.pages.dev/)**. It uses fictional seed data and accepts booking contacts ending in `@example.invalid` only. The customer page now presents a salon-focused visual, service details, a booking assistant, and a clear AI and automation walkthrough. The standalone Worker has an hourly Cron Trigger for the bounded demo reset; production CPU usage still needs observation.
 
 Visitors can explore the owner workspace preview at `/owner-preview` without signing in. It uses four fictional records held only in the browser; the real owner dashboard and customer records remain protected. In local development, open `http://127.0.0.1:8788/owner-preview`.
 
@@ -14,13 +14,23 @@ See the [deployment record](docs/deployment.md) for the verified release, free-t
 
 The application includes service browsing, real slot availability, pending booking requests, database-enforced chair capacity, idempotent submissions, reference-and-code status lookup and cancellation, owner sign-in, appointment decisions, searchable and exportable owner appointments, business-profile, service, and working-hours management, searchable customer records with private notes and owner-controlled deletion, owner analytics from stored records, a no-key English/Sinhala enquiry assistant with a structured owner review queue, approval-gated mock notifications and appointment reminder drafts, signed inbound webhook support, and a durable mock CRM sync. The live demo uses a fixed fictional visitor name, discards booking notes, and sends no real messages. Remote AI inference and inbound webhooks are optional and unconfigured in production. Real messaging and external CRM providers are still on the [roadmap](docs/roadmap.md). Do not use the public demo for real customer data.
 
-![Customer page at desktop width](docs/screenshots/customer-desktop.png)
+## AI and automation in the demo
 
-[Narrow viewport preview](docs/screenshots/customer-mobile.png) · Screenshots show fictional demonstration data.
+The **no-key assistant** reads a visitor's English or Sinhala enquiry and suggests a service, date, and time when it recognizes them. Missing details stay missing. A visitor must still choose an available slot; the booking API and D1 capacity rules make the actual decision. Cloudflare Workers AI is an optional adapter and is **not enabled** in the public demo.
 
-[Owner sign-in preview](docs/screenshots/owner-login.png)
+Booking events create durable owner activity and customer draft notifications. The owner reviews appointment requests and must approve customer drafts. Delivery is recorded in a **mock outbox**; the public demo sends no real email or SMS and does not connect to an external CRM. The [interactive owner workflow preview](https://microbizflow-ai.pages.dev/owner-preview) uses fictional records in browser memory and never loads private customer data.
 
-[Owner workspace preview](docs/screenshots/owner-preview.png) · [Mobile owner preview](docs/screenshots/owner-preview-mobile.png)
+![Salon-focused customer page at desktop width](docs/screenshots/customer-desktop.png)
+
+[Customer page at mobile width](docs/screenshots/customer-mobile.png) · The studio image is generated and illustrative; Harbour Cut Studio is fictional.
+
+![No-key booking assistant suggesting a haircut and asking for missing details](docs/screenshots/booking-assistant.png)
+
+![Public AI and automation walkthrough with booking rules and owner review](docs/screenshots/ai-automation.png)
+
+![Interactive fictional owner approval workflow preview](docs/screenshots/owner-automation-preview.png)
+
+[Full owner workspace preview](docs/screenshots/owner-preview.png) · [Mobile owner preview](docs/screenshots/owner-preview-mobile.png) · [Owner sign-in](docs/screenshots/owner-login.png). All screenshots use fictional demonstration data.
 
 ## Local setup
 

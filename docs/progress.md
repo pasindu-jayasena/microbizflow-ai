@@ -61,6 +61,12 @@ All nine migrations and fictional seed data were applied to the approved remote 
 
 Wrangler confirmed no pending remote D1 migrations. A point-in-time D1 info check showed 18 tables, 245,760 bytes, and 148 rows read and 144 rows written over 24 hours. The owner-reported Cloudflare Billing status remains Workers Free active, R2 Paid canceled, no other paid subscriptions, and $0.00; the OAuth token cannot independently read billing. The first live Cron execution and production CPU time have not yet been observed. The generated production owner password remains in ignored `.production-owner-credentials` until the owner saves it privately; the live login succeeded.
 
+## 2026-11-12 — Salon UI and AI automation preview
+
+The customer page's opening-hours text and other symbols were repaired from malformed UTF-8 sequences. A generated illustrative two-chair salon image was optimized as a 141 KB WebP asset. The customer page now presents a studio-focused hero, clear service navigation, and a prominent AI and automation walkthrough that explains no-key suggestions, deterministic booking checks, owner review, and mock-only delivery. The booking assistant visibly identifies its no-key demo mode. The public owner preview now includes an interactive fictional suggestion-to-approval workflow that makes no owner API requests; the protected owner automation section highlights the human approval boundary.
+
+The README now includes refreshed customer and owner screenshots plus dedicated booking assistant and AI automation previews, all using fictional data. The deployment and architecture notes were updated to match the live system. Local build, TypeScript, ESLint, 32 Vitest tests, and three Playwright flows passed; the local owner settings test was skipped because this shell has no disposable local password. The updated screenshots were visually reviewed at desktop and mobile widths. Branch CI and deployment of this UI update remain the next gates.
+
 ## Next work
 
-Monitor the first hourly Cron run and Cloudflare CPU and request usage within the Free plan. Save the production owner password in a password manager, then remove the ignored local credential file. Continue feature work on `deploymentBranch` with verified owner commits and CI before updating `main` and the live Pages deployment.
+Require green branch and PR CI with the disposable owner browser flow, then fast-forward the reviewed UI commit to `main` and deploy the refreshed Pages assets on the existing Free project. Verify the live image, punctuation, assistant, and workflow preview. Continue monitoring Cloudflare Free usage and the hourly Cron; save the ignored production owner password privately before deleting its local file.
