@@ -73,6 +73,14 @@ The UI feature commit `9d8c7646f69b4334ea043c57ce440faaf12187f5` and separate sc
 
 The refreshed Pages assets deployed on the existing Free project as production deployment `0bcc3fd9-471a-45dc-b457-724bdb458d12` from commit `381eefb`. No new Cloudflare resource, D1 migration, paid feature, or Worker deployment was needed. On the live HTTPS site, a browser verified the salon image, corrected opening-hours punctuation, no-key assistant label, AI and automation section, and interactive public owner workflow preview without owner API calls or page errors. A second live smoke passed fictional booking and cancellation, owner login and authorization, demo contact guard, and logout. No real message was sent.
 
+## 2026-11-12 — Portfolio presentation release
+
+The salon hero and owner preview now use concise product language, and the customer automation section gives a direct enquiry-to-appointment walkthrough. The generated image no longer has a visible illustrative caption. The assistant badge describes built-in suggestions; the README now foregrounds implemented engineering capabilities and refreshed product screenshots. A short portfolio-demo notice and the booking form's sample-data warning remain so visitors do not submit real customer details or mistake simulated messaging for live delivery.
+
+The UI commit `1ad073b983a0ee46d6776ca19b1dec5544526096` and README/screenshot commit `4f256f2708f7057fc4212b7b8163133d824c1b5d` were pushed on `deploymentBranch` after full owner-identity checks. Branch checks and [PR #6](https://github.com/pasindu-jayasena/microbizflow-ai/pull/6) passed. The reviewed branch was fast-forwarded to `main`; [main CI](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/43112553718) passed all four browser flows. GitHub confirmed the remote SHA and Pasindu Jayasena as author and committer.
+
+The existing Free Pages project was updated as production deployment `e2974be7-aa1a-4a0a-a232-eb39309cc670` from `4f256f2`. The live browser test passed the image, corrected hours, assistant badge, automation walkthrough, owner preview isolation, and absence of page errors. A separate live smoke passed owner authentication, private-route checks, fictional booking and cancellation, and the demo contact guard. No new Cloudflare resources, D1 migration, Worker redeployment, or real message delivery occurred.
+
 ## Next work
 
 Continue monitoring Cloudflare Free usage and the hourly Cron's CPU and outcome. The owner should save the ignored production password in a password manager before deleting its local file. Future UI and feature changes should continue through `deploymentBranch`, green CI, verified owner pushes, and explicit Pages deployments.

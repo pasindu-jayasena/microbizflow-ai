@@ -2,9 +2,9 @@
 
 ## Live release
 
-The fictional Harbour Cut Studio demo is live at **https://microbizflow-ai.pages.dev/**. The current Pages Direct Upload production deployment is `0bcc3fd9-471a-45dc-b457-724bdb458d12`, built from verified Git commit `381eefb81c54583c2e57afdf8ef8cca7953c109f` on `main`. [Its GitHub CI run](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/43108803088) passed all checks, including four browser flows. The previous production deployment `1a467f0e-88ca-4fe2-9485-b8c6b933ca60` remains in Pages history as a rollback option.
+The fictional Harbour Cut Studio demo is live at **https://microbizflow-ai.pages.dev/**. The current Pages Direct Upload production deployment is `e2974be7-aa1a-4a0a-a232-eb39309cc670`, built from verified Git commit `4f256f2708f7057fc4212b7b8163133d824c1b5d` on `main`. [Its GitHub CI run](https://github.com/pasindu-jayasena/microbizflow-ai/actions/runs/43112553718) passed all checks, including four browser flows. The previous production deployment `0bcc3fd9-471a-45dc-b457-724bdb458d12` remains in Pages history as a rollback option.
 
-On 2026-11-12 (Asia/Colombo), the current HTTPS release returned HTTP 200 for `/` and `/api/business`. Browser checks passed the salon image, correctly rendered opening hours, no-key assistant label, AI and automation walkthrough, public owner workflow preview without owner API requests, and absence of page errors. A live smoke test also passed owner login, private customer-route authorization, cross-origin rejection, secure session cookie, logout, fictional booking, reference-and-code lookup, cancellation, and rejection of a real-looking contact. No real message was sent.
+On 2026-11-12 (Asia/Colombo), the current HTTPS release returned HTTP 200 for `/` and `/api/business`. Browser checks passed the salon image, correctly rendered opening hours, built-in assistant label, AI and automation walkthrough, public owner workflow preview without owner API requests, and absence of page errors. A live smoke test also passed owner login, private customer-route authorization, cross-origin rejection, secure session cookie, logout, fictional booking, reference-and-code lookup, cancellation, and rejection of a real-looking contact. No real message was sent.
 
 The deployment uses the Cloudflare account associated with `pasindujayasena.biz@gmail.com`. Resources:
 
@@ -18,7 +18,7 @@ The Pages production environment lists exactly two encrypted secrets, `OWNER_USE
 
 ## Release and verification
 
-After the owner approved the [Free-only plan](deployment-plan.md), the initial release from `deploymentBranch` passed [PR #2](https://github.com/pasindu-jayasena/microbizflow-ai/pull/2). The salon and automation update passed [PR #4](https://github.com/pasindu-jayasena/microbizflow-ai/pull/4) and was fast-forwarded to `main`. GitHub confirmed matching remote SHAs and both author and committer as `Pasindu Jayasena <pasindujayasena.biz@gmail.com>`, associated with `pasindu-jayasena`. The updated source passed deployment configuration checks, TypeScript build, ESLint, 32 Vitest tests, four deployment and credential tests, nine Python schema tests, and local browser tests. Branch, PR, and main CI passed all four browser flows with a disposable owner credential.
+After the owner approved the [Free-only plan](deployment-plan.md), the initial release from `deploymentBranch` passed [PR #2](https://github.com/pasindu-jayasena/microbizflow-ai/pull/2). The salon and automation update passed [PR #4](https://github.com/pasindu-jayasena/microbizflow-ai/pull/4). The portfolio presentation update passed [PR #6](https://github.com/pasindu-jayasena/microbizflow-ai/pull/6). Both later updates were fast-forwarded to `main`. GitHub confirmed matching remote SHAs and both author and committer as `Pasindu Jayasena <pasindujayasena.biz@gmail.com>`, associated with `pasindu-jayasena`. The updated source passed deployment configuration checks, TypeScript build, ESLint, 32 Vitest tests, four deployment and credential tests, nine Python schema tests, and local browser tests. Branch, PR, and main CI passed all four browser flows with a disposable owner credential.
 
 Initial production commands used from clean `main` after remote D1 migrations, fictional seed, and protected secret setup:
 
@@ -40,6 +40,14 @@ node scripts/wrangler.mjs pages deploy dist/web --project-name microbizflow-ai -
 ```
 
 The D1 schema and scheduled Worker code did not change, so neither was redeployed.
+
+The portfolio presentation update reused the same Free resources and secrets. From clean `main` after green CI, it ran `npm run check:deployment-config`, `npm run build`, and:
+
+```sh
+node scripts/wrangler.mjs pages deploy dist/web --project-name microbizflow-ai --branch main --commit-hash 4f256f2708f7057fc4212b7b8163133d824c1b5d
+```
+
+The refreshed README and screenshots, salon copy, and automation walkthrough required no D1 migration or Worker redeployment. The documentation commit that records this release will be newer than the Pages source commit.
 
 The migration list reported no pending migrations. After the smoke test, D1 reported 18 tables, 245,760 bytes of storage, and in the preceding 24 hours 148 rows read and 144 rows written. These are a point-in-time sample, not a capacity forecast. The hourly trigger was accepted and is listed in the Worker deployment output. **A live scheduled invocation and its CPU time have not yet been observed.** The scheduled logic passed local D1 and audit tests; monitor the first production trigger before claiming the live reset has run.
 
