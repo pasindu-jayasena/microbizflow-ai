@@ -11,6 +11,8 @@
     "lint": "eslint web/src worker/src shared functions scripts tests/e2e vite.config.ts vitest.config.ts playwright.config.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:deployment-config": "node --test tests/deployment-config.test.mjs tests/production-owner.test.mjs",
+    "check:deployment-config": "node scripts/check-deployment-config.mjs",
     "test:integration:local": "node scripts/smoke-booking.mjs",
     "test:ai:local": "node scripts/smoke-ai.mjs",
     "test:workflow:local": "node scripts/smoke-workflow.mjs",
@@ -29,6 +31,7 @@
     "test:demo:local": "node scripts/smoke-demo.mjs",
     "test:e2e": "playwright test",
     "owner:setup:local": "node scripts/setup-owner.mjs",
+    "owner:prepare:production": "node scripts/prepare-production-owner.mjs",
     "db:migrate:local": "node scripts/wrangler.mjs d1 migrations apply microbizflow-local --config wrangler.worker.toml --local",
     "db:seed:local": "node scripts/wrangler.mjs d1 execute microbizflow-local --config wrangler.worker.toml --local --file=./db/seed.sql"
   },

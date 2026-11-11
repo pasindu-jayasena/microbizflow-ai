@@ -37,6 +37,12 @@
 - Wrangler `whoami` confirmed the Cloudflare account associated with `pasindujayasena.biz@gmail.com` on 2026-11-11. A read-only subscription lookup returned HTTP 403 because the OAuth token lacks Billing Read. The user confirmed Workers Free in the dashboard and reported canceling R2 Paid; cancellation, other subscriptions, usage, and charges remain unverified. No Cloudflare resource has been provisioned or deployed; deployment requires a readiness report and explicit approval.
 - No public demo, live URL, or real message delivery is claimed.
 
+## 2026-11-11 — Cloudflare Free release preparation
+
+On `deploy/cloudflare-free`, the owner reported checking the Cloudflare Billing dashboard: Workers Free active, R2 Paid canceled, no other active paid developer subscriptions, a $0.00 balance, and no unpaid invoices or unexpected usage. Billing remains owner-reported because Wrangler's token lacks Billing Read. The owner explicitly required approval of the final resource plan before any provisioning or deployment. The [deployment plan](deployment-plan.md) names one D1 database, one Direct Upload Pages project, and one private scheduled Worker. No Cloudflare resource has been provisioned.
+
+A release preflight now rejects local D1 placeholders, localhost origins, unexpected paid bindings, disabled demo mode, mismatched database IDs, and a public scheduler. A synthetic check passed; the checked-in local configs correctly fail the production preflight until the approved D1 and Pages resources exist. A generated 256-bit production owner credential format was added after a synthetic PBKDF2 check measured roughly 47 ms of local CPU against Workers Free's 10 ms invocation limit. The legacy local PBKDF2 path remains supported. Local checks on the branch passed: TypeScript, ESLint, 29 Vitest tests, three deployment config tests, one production credential generation test, nine Python schema tests, production build, Pages Function build, and Worker dry run. Three Playwright flows passed; the owner settings flow was skipped locally because this shell had no disposable owner password. Branch CI must run that flow before release readiness is claimed.
+
 ## Next work
 
-Obtain independent billing confirmation and explicit approval of the deployment readiness report before provisioning. Then configure and test the Free Cloudflare deployment.
+Push the reviewed deployment preparation branch using the verified GitHub identity, require green CI and a pull request review, then present the final plan for explicit approval. Only after approval, provision the named Free resources, replace placeholders, verify production behavior and usage, and record the live URL.

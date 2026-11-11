@@ -89,7 +89,7 @@ flowchart LR
   Events --> Approval[Owner approval & mock outbox]
 ```
 
-See [architecture decisions](docs/architecture.md), [integration boundary](docs/integrations.md), [deployment prerequisites](docs/deployment.md), and [privacy notes](PRIVACY.md).
+See [architecture decisions](docs/architecture.md), [integration boundary](docs/integrations.md), [deployment prerequisites](docs/deployment.md), the [Cloudflare Free deployment plan](docs/deployment-plan.md), and [privacy notes](PRIVACY.md).
 
 ## API snapshot
 
