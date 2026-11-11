@@ -7,6 +7,7 @@ import { analyzeEnquiry, cloudflareProvider, type AiBinding } from './ai';
 import { approveNotification, deliverApproved, processEvent, processPendingEvents } from './workflows';
 import { businessProfile, hoursConfig, serviceConfig } from '../../shared/config';
 import { processInboundWebhook, processPendingInboundWebhooks, verifyWebhook } from './webhooks';
+import { appointmentsCsv, listAppointments, parseAppointmentFilter } from './appointment-list';
 
 interface Env { DB: D1Database; DEMO_BUSINESS_SLUG: string; ALLOWED_ORIGIN: string; OWNER_USERNAME?: string; OWNER_PASSWORD_HASH?: string; WEBHOOK_SECRET?: string; AI?: AiBinding; AI_MODEL?: string }
 interface Business { id: string; slug: string; name: string; description: string; timezone: string; currency: string; address: string; phone: string }
@@ -222,10 +223,18 @@ async function handle(request: Request, env: Env): Promise<Response> {
       return json({ weekday });
     }
     if (url.pathname === '/api/owner/appointments' && request.method === 'GET') {
-      const rows = await env.DB.prepare(`SELECT a.id,a.reference,a.start_at,a.end_at,a.status,a.customer_name,a.customer_contact,a.customer_note,s.name AS service_name,r.name AS resource_name
-        FROM appointments a JOIN services s ON s.id = a.service_id JOIN resources r ON r.id = a.resource_id
-        WHERE a.business_id = ? ORDER BY a.start_at DESC LIMIT 100`).bind(b.id).all();
-      return json({ appointments: rows.results });
+      const filter = parseAppointmentFilter(url);
+      if (!filter.success) return bad('Invalid appointment filter');
+      return json({ appointments: await listAppointments(env.DB,b.id,filter.data,100) });
+    }
+    if (url.pathname === '/api/owner/appointments/export' && request.method === 'GET') {
+      const filter = parseAppointmentFilter(url);
+      if (!filter.success) return bad('Invalid appointment filter');
+      const rows = await listAppointments(env.DB,b.id,filter.data,1000);
+      return new Response(appointmentsCsv(rows), { headers: {
+        'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="microbizflow-appointments.csv"',
+        'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
+      } });
     }
     if (url.pathname === '/api/owner/workflows' && request.method === 'GET') {
       const rows = await env.DB.prepare(`SELECT e.event_key,e.kind,e.subject_status,e.state,e.attempts,e.last_error,e.created_at,a.reference

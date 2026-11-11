@@ -5,3 +5,5 @@ The booking flow needs a customer's name and contact method to process a request
 The enquiry assistant runs locally in deterministic mode by default. If a Cloudflare Workers AI binding is configured, a visitor must explicitly opt in before their message is sent to that service. Obvious email addresses and phone numbers are redacted before the model call, but this is not a guarantee that all personal information is removed. The interface asks visitors to avoid personal details. The public demo is planned to use fictional records and mock notifications only.
 
 No live application or data processing service is currently deployed by this repository.
+
+Owners can download a CSV containing names, contacts, notes, and booking history. This endpoint requires the owner session and uses `Cache-Control: no-store`; downloaded files must be handled as private data. Export is limited to 1,000 matching appointments per request.

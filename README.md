@@ -6,7 +6,7 @@ MicroBizFlow AI is an open-source booking and customer workflow application for 
 
 ## Current status
 
-A working **local MVP** includes service browsing, real slot availability, pending booking requests, database-enforced chair capacity, idempotent submissions, reference-and-code status lookup and cancellation, owner sign-in, appointment decisions, business-profile, service, and working-hours management, searchable customer records with private notes, owner analytics from stored records, a no-key English/Sinhala enquiry assistant, approval-gated mock notifications, and optional signed inbound webhooks that create owner follow-up tasks. The public repository exists, but **no public demo has been deployed**. Remote AI inference and inbound webhooks are optional and unconfigured in the checked-in deployment settings. Real messaging and external CRM integrations are still on the [roadmap](docs/roadmap.md). Do not use the current build for real customer data.
+A working **local MVP** includes service browsing, real slot availability, pending booking requests, database-enforced chair capacity, idempotent submissions, reference-and-code status lookup and cancellation, owner sign-in, appointment decisions, searchable and exportable owner appointments, business-profile, service, and working-hours management, searchable customer records with private notes, owner analytics from stored records, a no-key English/Sinhala enquiry assistant, approval-gated mock notifications, and optional signed inbound webhooks that create owner follow-up tasks. The public repository exists, but **no public demo has been deployed**. Remote AI inference and inbound webhooks are optional and unconfigured in the checked-in deployment settings. Real messaging and external CRM integrations are still on the [roadmap](docs/roadmap.md). Do not use the current build for real customer data.
 
 ![Customer page at desktop width](docs/screenshots/customer-desktop.png)
 
@@ -82,7 +82,7 @@ See [architecture decisions](docs/architecture.md), [deployment prerequisites](d
 - `POST /api/bookings` — pending booking request with an idempotency UUID
 - `POST /api/bookings/status` and `/api/bookings/cancel` — private-code lookup and cancellation
 - `POST /api/enquiries/analyze` — structured suggestion, no-key by default
-- `/api/owner/*` — login, session, logout, private appointments, summary, and state changes
+- `/api/owner/*` — login, session, logout, private appointments, filters, CSV export, summary, and state changes
 - `/api/owner/customers*` — protected customer search, appointment history, and private notes
 - `GET /api/owner/analytics` — protected booking and workflow metrics calculated from stored records
 - `POST /api/webhooks/inbound` — optional HMAC-signed follow-up events; disabled without a server secret

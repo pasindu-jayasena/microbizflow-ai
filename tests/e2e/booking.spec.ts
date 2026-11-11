@@ -2,6 +2,10 @@ import { expect, test } from '@playwright/test';
 import { Temporal } from '@js-temporal/polyfill';
 
 test('a customer can request, check, and cancel a real booking', async ({ page, request }) => {
+  // Local D1 persists across runs; use a fresh synthetic client identity for this flow.
+  const groups = crypto.randomUUID().replaceAll('-', '').match(/.{4}/g)!;
+  const testIp = `2001:db8:${groups.slice(0, 6).join(':')}`;
+  await page.route('**/api/**', route => route.continue({ headers: { ...route.request().headers(), 'CF-Connecting-IP': testIp } }));
   const catalogue = await request.get('/api/business').then(response => response.json());
   const today = Temporal.Now.zonedDateTimeISO(catalogue.business.timezone).toPlainDate();
   let date = '';
@@ -41,6 +45,18 @@ test('a customer can request, check, and cancel a real booking', async ({ page, 
     await page.goto('/owner');
     await page.getByLabel('Password').fill(process.env.LOCAL_OWNER_PASSWORD);
     await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.getByLabel('Search appointments').fill(contact);
+    await page.getByRole('combobox', { name: 'Status' }).selectOption('cancelled');
+    await page.getByRole('button', { name: 'Apply filters' }).click();
+    await expect(page.locator('article').filter({ hasText: contact })).toBeVisible();
+    const downloadStarted = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Export CSV' }).click();
+    const download = await downloadStarted;
+    expect(download.suggestedFilename()).toBe('microbizflow-appointments.csv');
+    expect(await download.failure()).toBeNull();
+    const csv = await page.evaluate(async term => (await fetch(`/api/owner/appointments/export?q=${encodeURIComponent(term)}&status=cancelled`, { credentials: 'include' })).text(), contact);
+    expect(csv).toContain(contact);
+    expect(csv).toContain('"cancelled"');
     await expect(page.getByRole('heading', { name: 'Customers', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Analytics', exact: true })).toBeVisible();
     await expect(page.getByText('Booking requests', { exact: true })).toBeVisible();
@@ -57,6 +73,7 @@ test('a customer can request, check, and cancel a real booking', async ({ page, 
 test('owner records stay behind the sign-in screen', async ({ page, request }) => {
   const privateResponse = await request.get('/api/owner/appointments');
   expect(privateResponse.status()).toBe(401);
+  expect((await request.get('/api/owner/appointments/export')).status()).toBe(401);
   await page.goto('/owner');
   await expect(page.getByRole('heading', { name: 'Welcome back.' })).toBeVisible();
   await expect(page.getByLabel('Password')).toBeVisible();
