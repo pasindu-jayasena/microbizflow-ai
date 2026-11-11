@@ -69,6 +69,9 @@ test('a customer can request, check, and cancel a real booking', async ({ page, 
     expect(csv).toContain('"cancelled"');
     await expect(page.getByRole('heading', { name: 'Customers', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Analytics', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'CRM integration' })).toBeVisible();
+    await page.getByRole('button', { name: 'Process mock CRM queue' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'No external service was contacted' })).toBeVisible();
     await expect(page.getByText('Booking requests', { exact: true })).toBeVisible();
     await page.getByLabel('Search customers').fill(contact);
     await page.getByRole('button', { name: 'Search', exact: true }).click();

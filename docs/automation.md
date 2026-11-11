@@ -27,3 +27,5 @@ An optional inbound webhook accepts `POST /api/webhooks/inbound` only when the s
 The webhook is disabled by default. The local `npm run test:webhook:local` script uses a synthetic secret and fictional booking. It verifies HMAC signing, freshness, deduplication, private activity, and task completion. This is an inbound mock integration; it does not call HubSpot, Google, or any messaging provider.
 
 The current implementation does not include real messaging providers, customer notification retrieval, or n8n templates. Enabling any real outbound channel needs credentials, consent, and an explicit provider implementation with delivery idempotency. No real messages should be sent from a public demo.
+
+Booking creation and status changes also enqueue durable mock CRM sync events. The adapter interface is documented in [integrations.md](integrations.md). The mock adapter makes no external request; retries use stable event keys and skip deleted customers. The owner can inspect and retry these events, and the scheduled Worker processes a bounded batch when deployed.

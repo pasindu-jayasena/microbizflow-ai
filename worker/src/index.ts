@@ -9,6 +9,7 @@ import { businessProfile, hoursConfig, serviceConfig } from '../../shared/config
 import { processInboundWebhook, processPendingInboundWebhooks, verifyWebhook } from './webhooks';
 import { appointmentsCsv, listAppointments, parseAppointmentFilter } from './appointment-list';
 import { eraseCustomerDetails, purgeExpiredCustomers } from './privacy';
+import { processCrmEvent, processPendingCrmEvents } from './crm';
 
 interface Env { DB: D1Database; DEMO_BUSINESS_SLUG: string; ALLOWED_ORIGIN: string; OWNER_USERNAME?: string; OWNER_PASSWORD_HASH?: string; WEBHOOK_SECRET?: string; AI?: AiBinding; AI_MODEL?: string }
 interface Business { id: string; slug: string; name: string; description: string; timezone: string; currency: string; address: string; phone: string }
@@ -107,6 +108,13 @@ async function handle(request: Request, env: Env): Promise<Response> {
       return json({ events: events.results, tasks: tasks.results, configured: Boolean(env.WEBHOOK_SECRET && env.WEBHOOK_SECRET.length >= 32) });
     }
     if (url.pathname === '/api/owner/webhooks/run' && request.method === 'POST') return json(await processPendingInboundWebhooks(env.DB,b.id));
+    if (url.pathname === '/api/owner/integrations' && request.method === 'GET') {
+      const rows = await env.DB.prepare(`SELECT c.event_key,c.state,c.attempts,c.last_error,c.created_at,a.reference
+        FROM crm_sync_events c JOIN appointments a ON a.id=c.appointment_id
+        WHERE c.business_id=? ORDER BY c.created_at DESC,c.event_key DESC LIMIT 50`).bind(b.id).all();
+      return json({ provider: 'mock', externalConfigured: false, events: rows.results });
+    }
+    if (url.pathname === '/api/owner/integrations/run' && request.method === 'POST') return json(await processPendingCrmEvents(env.DB,b.id));
     const taskMatch = url.pathname.match(/^\/api\/owner\/tasks\/(\d+)\/complete$/);
     if (taskMatch && request.method === 'POST') {
       const id = Number(taskMatch[1]);
@@ -305,6 +313,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
       const updated = await env.DB.prepare('UPDATE appointments SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND business_id = ? AND status = ?').bind(parsed.data.status, id, b.id, current.status).run();
       if (updated.meta.changes < 1) return bad('Appointment changed. Refresh and try again.', 409);
       try { await processEvent(env.DB, b.id, `${id}:status:${parsed.data.status}`); } catch { /* Durable event remains for manual retry. */ }
+      try { await processCrmEvent(env.DB,b.id,`${id}:status:${parsed.data.status}`); } catch { /* Durable CRM event remains for retry. */ }
       return json({ id, status: parsed.data.status });
     }
     return bad('Not found', 404);
@@ -350,6 +359,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
       .bind(item.id,b.id,item.status).run();
     if (changed.meta.changes < 1) return bad('Booking changed. Check its latest status.', 409);
     try { await processEvent(env.DB,b.id,`${item.id}:status:cancelled`); } catch { /* Durable event remains for manual retry. */ }
+    try { await processCrmEvent(env.DB,b.id,`${item.id}:status:cancelled`); } catch { /* Durable CRM event remains for retry. */ }
     return json({ reference: item.reference, status: 'cancelled' });
   }
 
@@ -406,6 +416,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
       } catch { /* Optional enquiry linking must not fail a committed booking. */ }
     }
     try { await processEvent(env.DB, b.id, `${created.id}:created`); } catch { /* Durable event remains for manual retry. */ }
+    try { await processCrmEvent(env.DB,b.id,`${created.id}:created`); } catch { /* Durable CRM event remains for retry. */ }
     return json({ reference: created.reference, status: created.status, cancellationCode: created.idempotency_key }, 201);
   }
   return bad('Not found', 404);
@@ -433,5 +444,6 @@ export default {
     await queueUpcomingReminders(env.DB,b.id);
     await processPendingEvents(env.DB,b.id,2);
     await processPendingInboundWebhooks(env.DB,b.id,2);
+    await processPendingCrmEvents(env.DB,b.id,2);
   },
 } satisfies ExportedHandler<Env>;

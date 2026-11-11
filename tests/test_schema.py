@@ -86,6 +86,17 @@ class SchemaTest(unittest.TestCase):
         self.db.execute("UPDATE enquiry_analyses SET review_state='reviewed',reviewed_at=CURRENT_TIMESTAMP WHERE id='enquiry-1'")
         self.assertEqual(self.db.execute("SELECT review_state FROM enquiry_analyses WHERE id='enquiry-1'").fetchone()[0], 'reviewed')
 
+    def test_crm_sync_is_durable_and_stores_no_customer_content(self):
+        columns = {row[1] for row in self.db.execute('PRAGMA table_info(crm_sync_events)')}
+        self.assertNotIn('customer_name', columns)
+        self.assertNotIn('customer_contact', columns)
+        self.create('one', 'chair_1')
+        self.db.execute("UPDATE appointments SET status='confirmed' WHERE id='one'")
+        events = self.db.execute('SELECT event_key,state FROM crm_sync_events ORDER BY event_key').fetchall()
+        self.assertEqual(events, [('one:created', 'pending'), ('one:status:confirmed', 'pending')])
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.db.execute("INSERT INTO crm_sync_events(event_key,business_id,appointment_id) VALUES('one:created','biz_demo','one')")
+
 
 if __name__ == '__main__':
     unittest.main()

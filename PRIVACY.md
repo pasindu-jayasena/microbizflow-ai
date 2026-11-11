@@ -9,3 +9,5 @@ Assistant analysis records retain structured intent, processing mode, latency, r
 No live application or data processing service is currently deployed by this repository.
 
 Owners can download a CSV containing names, contacts, notes, and booking history. This endpoint requires the owner session and uses `Cache-Control: no-store`; downloaded files must be handled as private data. Export is limited to 1,000 matching appointments per request.
+
+Mock CRM sync records hold only booking IDs, event keys, states, attempts, and timestamps. The adapter reads current customer details while processing but makes no external request. After a customer is deleted, any retried mock sync is skipped.

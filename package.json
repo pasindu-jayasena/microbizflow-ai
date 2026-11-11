@@ -25,6 +25,7 @@
     "test:security:local": "node scripts/smoke-security.mjs",
     "test:scheduled:local": "node scripts/smoke-scheduled.mjs",
     "test:reminders:local": "node scripts/smoke-reminders.mjs",
+    "test:crm:local": "node scripts/smoke-crm.mjs",
     "test:e2e": "playwright test",
     "owner:setup:local": "node scripts/setup-owner.mjs",
     "db:migrate:local": "node scripts/wrangler.mjs d1 migrations apply microbizflow-local --config wrangler.worker.toml --local",

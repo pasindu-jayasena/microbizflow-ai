@@ -13,3 +13,5 @@ The current age-based cleanup requires an owner to run it. [Workers Free limits]
 Deployment requires the owner's Cloudflare authorization, production configuration, D1 migration, fictional seed data, HTTPS checks, a booking flow test, and a safe owner experience. Visitor writes need reset or isolation before publication. The public demo must not send real messages. Record verified URLs and exact deployment commands here only after they exist.
 
 The inbound webhook remains disabled unless a server-only `WEBHOOK_SECRET` is explicitly configured. A public demo does not need this secret; no external sender or paid integration is required. The owner dashboard can still show its disabled state. Do not copy the synthetic local test secret into production.
+
+CRM activity is mock-only in the checked-in build. It needs no external API key, subscription, or billable provider. Do not configure a real CRM or messaging integration for the public demo without a separate readiness review and explicit authorization.

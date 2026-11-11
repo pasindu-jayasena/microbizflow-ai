@@ -5,6 +5,7 @@ import { Customers } from './Customers';
 import { Analytics } from './Analytics';
 import { WebhookActivity } from './WebhookActivity';
 import { Enquiries } from './Enquiries';
+import { Integrations } from './Integrations';
 
 type Appointment = { id: string; reference: string; start_at: string; end_at: string; status: string; customer_name: string; customer_contact: string; customer_note: string; service_name: string; resource_name: string };
 type Summary = { total: number; pending: number; confirmed: number; cancelled: number };
@@ -92,6 +93,7 @@ export function Owner() {
       <Analytics refreshToken={refreshToken} />
       <Enquiries refreshToken={refreshToken} />
       <WebhookActivity refreshToken={refreshToken} />
+      <Integrations refreshToken={refreshToken} />
       <OwnerSettings />
     </main>}
   </div>;

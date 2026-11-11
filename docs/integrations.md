@@ -1,0 +1,7 @@
+# CRM integration boundary
+
+The application defines a `CrmAdapter` interface in `worker/src/crm.ts` for a customer projection and an idempotency key. Booking creation and status changes enqueue durable, business-scoped `crm_sync_events` in D1. The current adapter is **mock only**: it makes no network request and records `mock_synced` after the event is processed. The owner can review the latest 50 event states and retry pending or failed events. The hourly Worker handler also processes at most two per invocation when deployed. No Worker or scheduled trigger is currently deployed.
+
+The event table stores booking IDs, event keys, state, attempts, and timestamps. It does not duplicate customer names or contact methods. The adapter reads the current appointment only while processing. A deleted customer's redacted appointment is skipped. Failed attempts are leased and retried up to three times; event keys prevent duplicate queue entries. The local integration test also injects a temporary adapter failure to verify stable idempotency keys on retry.
+
+HubSpot, Google services, and other CRM providers are **not connected**. A real adapter would require server-side credentials, limited scopes, an explicit owner configuration flow, provider-specific idempotency and rate-limit handling, a deletion strategy, and privacy review. The public demo will remain in mock mode; no customer data is sent to an external CRM.
