@@ -47,6 +47,8 @@ test('a customer can request, check, and cancel a real booking', async ({ page, 
     await page.goto('/owner');
     await page.getByLabel('Password').fill(process.env.LOCAL_OWNER_PASSWORD);
     await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.getByRole('button', { name: 'Prepare reminders' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'upcoming reminder' })).toBeVisible();
     if (analyzed && reference) {
       const enquiryCard = page.getByRole('region', { name: 'AI enquiries' }).locator('article').filter({ hasText: reference });
       await expect(enquiryCard).toBeVisible();

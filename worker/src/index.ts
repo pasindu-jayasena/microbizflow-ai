@@ -4,7 +4,7 @@ import { allowPublicBooking, login, logout, ownerBusiness } from './auth';
 import { canTransition, type AppointmentStatus } from '../../shared/appointments';
 import { Temporal } from '@js-temporal/polyfill';
 import { analyzeEnquiry, cloudflareProvider, type AiBinding } from './ai';
-import { approveNotification, deliverApproved, processEvent, processPendingEvents } from './workflows';
+import { approveNotification, deliverApproved, processEvent, processPendingEvents, queueUpcomingReminders } from './workflows';
 import { businessProfile, hoursConfig, serviceConfig } from '../../shared/config';
 import { processInboundWebhook, processPendingInboundWebhooks, verifyWebhook } from './webhooks';
 import { appointmentsCsv, listAppointments, parseAppointmentFilter } from './appointment-list';
@@ -269,8 +269,12 @@ async function handle(request: Request, env: Env): Promise<Response> {
     if (url.pathname === '/api/owner/workflows/run' && request.method === 'POST') {
       return json(await processPendingEvents(env.DB, b.id));
     }
+    if (url.pathname === '/api/owner/reminders/run' && request.method === 'POST') {
+      const queued = await queueUpcomingReminders(env.DB,b.id);
+      return json({ queued, ...await processPendingEvents(env.DB,b.id) });
+    }
     if (url.pathname === '/api/owner/notifications' && request.method === 'GET') {
-      const rows = await env.DB.prepare(`SELECT n.id,n.kind,n.body,n.state,n.attempts,n.created_at,n.approved_at,n.delivered_at,a.reference
+      const rows = await env.DB.prepare(`SELECT n.id,n.event_key,n.kind,n.body,n.state,n.attempts,n.created_at,n.approved_at,n.delivered_at,a.reference,a.status AS appointment_status,a.start_at
         FROM notifications n JOIN appointments a ON a.id=n.appointment_id
         WHERE n.business_id=? ORDER BY n.id DESC LIMIT 50`).bind(b.id).all();
       return json({ notifications: rows.results });
@@ -426,6 +430,7 @@ export default {
     const b = await business(env.DB,env.DEMO_BUSINESS_SLUG);
     if (!b) throw new Error('Business is not configured');
     // Keep each invocation small for Workers Free CPU and D1 request limits.
+    await queueUpcomingReminders(env.DB,b.id);
     await processPendingEvents(env.DB,b.id,2);
     await processPendingInboundWebhooks(env.DB,b.id,2);
   },

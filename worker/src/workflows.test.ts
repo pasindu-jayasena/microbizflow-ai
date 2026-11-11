@@ -9,7 +9,7 @@ describe('notification drafts', () => {
     });
   });
   it('holds customer-facing text for owner approval', () => {
-    for (const status of ['confirmed', 'declined', 'cancelled']) {
+    for (const status of ['confirmed', 'declined', 'cancelled', 'reminder_due']) {
       expect(draftForEvent({ ...base, kind: 'status_changed', subject_status: status }).state).toBe('needs_approval');
     }
   });
