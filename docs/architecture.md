@@ -14,7 +14,7 @@ Appointments reserve a specific resource for a time interval. Pending and confir
 
 ## Data model plan
 
-Implemented tables: businesses, services, resources, working_hours, appointments, appointment_audit, owner_sessions, login_attempts, public_request_limits, workflow_events, notifications, notification_audit, and customer_records. Enquiry and integration tables remain planned. Every private row carries or derives a business scope. Business IDs are explicit in private queries. Foreign keys, unique idempotency keys, state checks, and indexes support integrity and performance. Migrations are versioned SQL files.
+Implemented tables: businesses, services, resources, working_hours, appointments, appointment_audit, owner_sessions, login_attempts, public_request_limits, workflow_events, notifications, notification_audit, customer_records, enquiry_analyses, inbound_webhooks, and owner_tasks. External integration configuration remains planned. Every private row carries or derives a business scope. Business IDs are explicit in private queries. Foreign keys, unique idempotency keys, state checks, and indexes support integrity and performance. Migrations are versioned SQL files.
 
 ## Security and AI
 
@@ -24,4 +24,4 @@ Public routes expose only publishable business and availability data. Owner rout
 
 Customer lookup and cancellation use the booking reference plus a private random UUID shown at submission, sent in POST bodies and matched within the business. This is a bearer code: anyone who obtains both values can act on the booking. Stronger verified customer accounts and recovery remain future work. Cancellation is allowed for pending or confirmed bookings until 30 minutes before the visit; the database records the status change and audit event.
 
-Remaining design work includes stronger customer identity, retention/deletion controls, broader language evaluation, secure webhooks, scheduled reminders, and external integration adapters. The current owner model is a single local account per deployment; multi-tenant owner management is future work. Cloudflare free-tier limits and applicable package licenses must be rechecked before deployment.
+Owners can delete a customer record after all its bookings reach terminal states. A D1 batch removes the record and linked assistant analyses, anonymizes booking personal fields, and changes private booking codes while preserving status and audit history. Automatic age-based retention remains planned. Other remaining work includes stronger customer identity, broader language evaluation, scheduled reminders, and external integration adapters. The current owner model is a single local account per deployment; multi-tenant owner management is future work. Cloudflare free-tier limits and applicable package licenses must be rechecked before deployment.

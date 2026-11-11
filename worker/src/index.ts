@@ -203,6 +203,25 @@ async function handle(request: Request, env: Env): Promise<Response> {
         if (result.meta.changes < 1) return bad('Customer not found', 404);
         return json({ contactKey });
       }
+      if (request.method === 'DELETE') {
+        const customer = await env.DB.prepare('SELECT 1 AS found FROM customer_records WHERE business_id=? AND contact_key=?').bind(b.id,contactKey).first();
+        if (!customer) return bad('Customer not found', 404);
+        const active = `EXISTS (SELECT 1 FROM appointments active WHERE active.business_id=?
+          AND lower(trim(active.customer_contact))=? AND active.status IN ('pending','confirmed'))`;
+        const results = await env.DB.batch([
+          env.DB.prepare(`DELETE FROM enquiry_analyses WHERE business_id=? AND appointment_id IN
+            (SELECT id FROM appointments WHERE business_id=? AND lower(trim(customer_contact))=?) AND NOT ${active}`)
+            .bind(b.id,b.id,contactKey,b.id,contactKey),
+          env.DB.prepare(`UPDATE appointments SET customer_name='Deleted customer',customer_contact='deleted:' || id,
+            customer_note='',idempotency_key=lower(hex(randomblob(16))),updated_at=CURRENT_TIMESTAMP
+            WHERE business_id=? AND lower(trim(customer_contact))=? AND NOT ${active}`)
+            .bind(b.id,contactKey,b.id,contactKey),
+          env.DB.prepare(`DELETE FROM customer_records WHERE business_id=? AND contact_key=? AND NOT ${active}`)
+            .bind(b.id,contactKey,b.id,contactKey),
+        ]);
+        if (results[2]!.meta.changes < 1) return bad('Finish or cancel active bookings before deleting this customer', 409);
+        return json({ deleted: true, anonymizedBookings: results[1]!.meta.changes });
+      }
     }
     if (url.pathname === '/api/owner/services' && request.method === 'POST') {
       const parsed = serviceConfig.safeParse(await readJson(request));
