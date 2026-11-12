@@ -10,11 +10,11 @@ import { businessProfile, hoursConfig, serviceConfig } from '../../shared/config
 import { processInboundWebhook, processPendingInboundWebhooks, verifyWebhook } from './webhooks';
 import { appointmentsCsv, listAppointments, parseAppointmentFilter } from './appointment-list';
 import { eraseCustomerDetails, purgeExpiredCustomers, resetExpiredDemoBookings } from './privacy';
-import { processCrmEvent, processPendingCrmEvents } from './crm';
+import { hubspotCrm, mockCrm, processCrmEvent, processPendingCrmEvents, type CrmAdapter } from './crm';
 import { cloudflareLeadProvider, leadInput, leadPayloadHash, openAiLeadProvider, qualifyLead, saveLead } from './leads';
 import { cloudflareDraftProvider, openAiDraftProvider, type DraftProvider } from './drafts';
 
-interface Env { DB: D1Database; DEMO_BUSINESS_SLUG: string; ALLOWED_ORIGIN: string; DEMO_MODE?: string; OWNER_USERNAME?: string; OWNER_PASSWORD_HASH?: string; WEBHOOK_SECRET?: string; AI?: AiBinding; AI_MODEL?: string; LLM_BASE_URL?: string; LLM_API_KEY?: string; LLM_MODEL?: string; DRAFT_AI_ENABLED?: string; AUTOMATION_TICK_TOKEN?: string }
+interface Env { DB: D1Database; DEMO_BUSINESS_SLUG: string; ALLOWED_ORIGIN: string; DEMO_MODE?: string; OWNER_USERNAME?: string; OWNER_PASSWORD_HASH?: string; WEBHOOK_SECRET?: string; AI?: AiBinding; AI_MODEL?: string; LLM_BASE_URL?: string; LLM_API_KEY?: string; LLM_MODEL?: string; DRAFT_AI_ENABLED?: string; AUTOMATION_TICK_TOKEN?: string; CRM_PROVIDER?: string; CRM_EXTERNAL_ENABLED?: string; HUBSPOT_SERVICE_KEY?: string }
 interface Business { id: string; slug: string; name: string; description: string; timezone: string; currency: string; address: string; phone: string }
 interface Service { id: string; name: string; description: string; duration_min: number; price_minor: number }
 interface Appointment { id: string; reference: string; service_id: string; start_at: string; end_at: string; status: string; customer_contact: string; idempotency_key: string }
@@ -30,6 +30,13 @@ function draftProvider(env: Env): DraftProvider | undefined {
     if (env.AI) return cloudflareDraftProvider(env.AI);
   } catch { /* Invalid optional AI configuration uses deterministic drafts. */ }
   return undefined;
+}
+
+function crmAdapter(env: Env): CrmAdapter {
+  if (env.DEMO_MODE === 'false' && env.CRM_PROVIDER === 'hubspot' && env.CRM_EXTERNAL_ENABLED === 'true' && env.HUBSPOT_SERVICE_KEY) {
+    return hubspotCrm(env.HUBSPOT_SERVICE_KEY);
+  }
+  return mockCrm;
 }
 
 async function readText(request: Request): Promise<string> {
@@ -77,7 +84,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
   const b = await business(env.DB, env.DEMO_BUSINESS_SLUG);
   if (!b) return bad('Business is not configured', 503);
 
-  if (url.pathname === '/api/automation/tick' && request.method === 'POST') {
+  if ((url.pathname === '/api/automation/tick' || url.pathname === '/api/automation/crm-tick') && request.method === 'POST') {
     if (!env.AUTOMATION_TICK_TOKEN || env.AUTOMATION_TICK_TOKEN.length < 32) return bad('Automation endpoint is not configured',503);
     const supplied = request.headers.get('Authorization')?.match(/^Bearer ([A-Za-z0-9_-]{32,200})$/)?.[1];
     if (!supplied) return bad('Automation authentication required',401);
@@ -85,6 +92,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
     let difference = 0;
     for (let i=0;i<expectedHash.length;i++) difference |= expectedHash.charCodeAt(i)^actualHash.charCodeAt(i);
     if (difference !== 0) return bad('Automation authentication required',401);
+    if (url.pathname === '/api/automation/crm-tick') return json(await processPendingCrmEvents(env.DB,b.id,2,crmAdapter(env)));
     const reminders = await queueUpcomingReminders(env.DB,b.id);
     const followups = await queueCompletedFollowups(env.DB,b.id);
     const events = await processPendingEvents(env.DB,b.id,2,draftProvider(env));
@@ -135,12 +143,12 @@ async function handle(request: Request, env: Env): Promise<Response> {
     }
     if (url.pathname === '/api/owner/webhooks/run' && request.method === 'POST') return json(await processPendingInboundWebhooks(env.DB,b.id));
     if (url.pathname === '/api/owner/integrations' && request.method === 'GET') {
-      const rows = await env.DB.prepare(`SELECT c.event_key,c.state,c.attempts,c.last_error,c.created_at,a.reference
+      const rows = await env.DB.prepare(`SELECT c.event_key,c.state,c.attempts,c.next_attempt_at,c.last_error,c.provider,c.external_id,c.latency_ms,c.synced_at,c.created_at,a.reference
         FROM crm_sync_events c JOIN appointments a ON a.id=c.appointment_id
         WHERE c.business_id=? ORDER BY c.created_at DESC,c.event_key DESC LIMIT 50`).bind(b.id).all();
-      return json({ provider: 'mock', externalConfigured: false, events: rows.results });
+      return json({ provider: crmAdapter(env).kind, externalConfigured: crmAdapter(env).kind === 'hubspot', events: rows.results });
     }
-    if (url.pathname === '/api/owner/integrations/run' && request.method === 'POST') return json(await processPendingCrmEvents(env.DB,b.id));
+    if (url.pathname === '/api/owner/integrations/run' && request.method === 'POST') return json(await processPendingCrmEvents(env.DB,b.id,10,crmAdapter(env)));
     if (url.pathname === '/api/owner/leads' && request.method === 'GET') {
       const leads = await env.DB.prepare(`SELECT l.id,l.contact_key,c.display_name,c.contact,l.service_id,s.name AS service_name,
         l.requested_date,l.requested_time,l.language,l.priority,l.mode,l.latency_ms,l.created_at
@@ -351,7 +359,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
       const updated = await env.DB.prepare('UPDATE appointments SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND business_id = ? AND status = ?').bind(parsed.data.status, id, b.id, current.status).run();
       if (updated.meta.changes < 1) return bad('Appointment changed. Refresh and try again.', 409);
       try { await processEvent(env.DB, b.id, `${id}:status:${parsed.data.status}`,draftProvider(env)); } catch { /* Durable event remains for manual retry. */ }
-      try { await processCrmEvent(env.DB,b.id,`${id}:status:${parsed.data.status}`); } catch { /* Durable CRM event remains for retry. */ }
+      try { await processCrmEvent(env.DB,b.id,`${id}:status:${parsed.data.status}`,crmAdapter(env)); } catch { /* Durable CRM event remains for retry. */ }
       return json({ id, status: parsed.data.status });
     }
     return bad('Not found', 404);
@@ -434,7 +442,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
       .bind(item.id,b.id,item.status).run();
     if (changed.meta.changes < 1) return bad('Booking changed. Check its latest status.', 409);
     try { await processEvent(env.DB,b.id,`${item.id}:status:cancelled`,draftProvider(env)); } catch { /* Durable event remains for manual retry. */ }
-    try { await processCrmEvent(env.DB,b.id,`${item.id}:status:cancelled`); } catch { /* Durable CRM event remains for retry. */ }
+    try { await processCrmEvent(env.DB,b.id,`${item.id}:status:cancelled`,crmAdapter(env)); } catch { /* Durable CRM event remains for retry. */ }
     return json({ reference: item.reference, status: 'cancelled' });
   }
 
@@ -494,7 +502,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
       } catch { /* Optional enquiry linking must not fail a committed booking. */ }
     }
     try { await processEvent(env.DB, b.id, `${created.id}:created`,draftProvider(env)); } catch { /* Durable event remains for manual retry. */ }
-    try { await processCrmEvent(env.DB,b.id,`${created.id}:created`); } catch { /* Durable CRM event remains for retry. */ }
+    try { await processCrmEvent(env.DB,b.id,`${created.id}:created`,crmAdapter(env)); } catch { /* Durable CRM event remains for retry. */ }
     return json({ reference: created.reference, status: created.status, cancellationCode: created.idempotency_key }, 201);
   }
   return bad('Not found', 404);
@@ -524,7 +532,7 @@ export default {
     await queueCompletedFollowups(env.DB,b.id);
     await processPendingEvents(env.DB,b.id,2,draftProvider(env));
     await processPendingInboundWebhooks(env.DB,b.id,2);
-    await processPendingCrmEvents(env.DB,b.id,2);
+    await processPendingCrmEvents(env.DB,b.id,2,crmAdapter(env));
     await purgeExpiredCustomers(env.DB,b.id,Date.now(),1,10);
   },
 } satisfies ExportedHandler<Env>;

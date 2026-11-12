@@ -1,0 +1,12 @@
+{
+  "name": "MicroBizFlow 04 - CRM synchronization",
+  "nodes": [
+    {"parameters":{"rule":{"interval":[{"field":"hours","hoursInterval":1}]}},"id":"f59eb0ce-102f-4681-a43c-7c61634af7c4","name":"Every hour","type":"n8n-nodes-base.scheduleTrigger","typeVersion":1.2,"position":[220,180]},
+    {"parameters":{"method":"POST","url":"http://127.0.0.1:8788/api/automation/crm-tick","authentication":"genericCredentialType","genericAuthType":"httpHeaderAuth","options":{"timeout":15000}},"id":"e3299ba2-6159-4f4c-b9cf-5086e8d8cd01","name":"Process due CRM events","type":"n8n-nodes-base.httpRequest","typeVersion":4.2,"position":[500,180],"credentials":{"httpHeaderAuth":{"id":"mbf-local-automation","name":"Local MicroBizFlow automation"}}},
+    {"parameters":{"httpMethod":"POST","path":"microbizflow/crm-tick","responseMode":"responseNode","options":{}},"id":"390e3aa7-4452-4420-8685-874dbff4d2b4","name":"Manual local trigger","type":"n8n-nodes-base.webhook","typeVersion":2,"position":[220,430],"webhookId":"390e3aa7-4452-4420-8685-874dbff4d2b4"},
+    {"parameters":{"method":"POST","url":"http://127.0.0.1:8788/api/automation/crm-tick","authentication":"genericCredentialType","genericAuthType":"httpHeaderAuth","options":{"timeout":15000}},"id":"9452ed3a-a5f6-4b5b-8d91-d1d54c6d3742","name":"Process CRM events manually","type":"n8n-nodes-base.httpRequest","typeVersion":4.2,"position":[500,430],"credentials":{"httpHeaderAuth":{"id":"mbf-local-automation","name":"Local MicroBizFlow automation"}}},
+    {"parameters":{"respondWith":"json","responseBody":"={{ JSON.stringify($json) }}","options":{}},"id":"39883a91-32c8-4ca0-a95b-a3857ade5f4a","name":"Return delivery counts","type":"n8n-nodes-base.respondToWebhook","typeVersion":1.1,"position":[760,430]}
+  ],
+  "connections":{"Every hour":{"main":[[{"node":"Process due CRM events","type":"main","index":0}]]},"Manual local trigger":{"main":[[{"node":"Process CRM events manually","type":"main","index":0}]]},"Process CRM events manually":{"main":[[{"node":"Return delivery counts","type":"main","index":0}]]}},
+  "settings":{"executionOrder":"v1","timezone":"Asia/Colombo"},"active":false,"pinData":{},"meta":{"templateCredsSetupCompleted":false}
+}

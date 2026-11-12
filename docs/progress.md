@@ -99,6 +99,12 @@ Extended the durable event processor to queue one follow-up draft for a complete
 
 The local reminder and follow-up smokes passed with a disposable owner, including idempotency, cancellation guard, private access, approval, and mock delivery. n8n 2.47.4 imported the scheduled workflow and its local manual trigger completed successfully in about 159 ms. The hourly n8n timer itself has not been observed. The next feature is a real external CRM adapter with idempotent retry handling; provider credentials are not yet available for a live external call.
 
+## 2026-11-13 — CRM synchronization workflow
+
+Added a HubSpot contacts upsert adapter behind an explicit non-demo flag and server-side Service Key. D1 migration `0012_crm_delivery.sql` adds due-time backoff, terminal dead-letter state, provider, external ID, and latency fields to durable CRM events. The Worker uses the selected adapter on booking, owner retry, and private Cron paths, and exposes a scoped local n8n CRM tick. The fourth n8n workflow imported, published, and ran locally with a mock queue response. Unit tests passed for idempotent retry, dead-letter, request shape, and partial provider failure; the local CRM smoke passed. No live HubSpot request has been made because no scoped development credential is available. The public demo remains mock-only. The migration and code are not deployed yet.
+
+Next: build the permission-controlled owner assistant, then run full regression and prepare a deployment review for the new D1 migrations.
+
 ## Next work
 
 Continue monitoring Cloudflare Free usage and the hourly Cron's CPU and outcome. The owner should save the ignored production password in a password manager before deleting its local file. Future UI and feature changes should continue through `deploymentBranch`, green CI, verified owner pushes, and explicit Pages deployments.

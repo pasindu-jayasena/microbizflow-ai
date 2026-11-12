@@ -40,6 +40,12 @@ For a local check, run `npm run test:reminders:local` and `npm run test:followup
 
 Optional draft LLM generation requires `DRAFT_AI_ENABLED=true` plus the server-only `LLM_BASE_URL`, `LLM_API_KEY`, and `LLM_MODEL`, or an approved Workers AI binding. Only booking reference, service name, and event kind go to the model. The body must include the exact reference and pass length and unsafe-content checks; failure uses a deterministic draft. Generation mode and latency are stored with the draft. No generated message can be delivered before owner approval, and this demo uses a mock outbox.
 
+## CRM synchronization
+
+Import `n8n/workflows/04-crm-sync.json` into the same local n8n instance. Select the same `Local MicroBizFlow automation` Header Auth credential for both HTTP Request nodes. The hourly schedule and manual `POST /webhook/microbizflow/crm-tick` call the scoped `POST /api/automation/crm-tick` Worker route. The Worker owns event leasing, retries, dead-letter state, and the optional HubSpot adapter; n8n holds no CRM credential. The hosted implementation uses the private Worker Cron and does not require n8n.
+
+On 2026-11-13, n8n 2.47.4 imported and published the fourth workflow locally. A manual webhook execution returned `{"processed":0,"failed":0}` with the mock adapter. The local CRM smoke created fictional booking events, verified private owner history, status synchronization, and deleted-customer skip. Unit tests covered backoff, dead-letter state, and the HubSpot request using a fake HTTP responder. A live HubSpot request remains unverified until a scoped development Service Key is available; see [integrations.md](integrations.md).
+
 ## LLM configuration
 
 The lead workflow uses an OpenAI-compatible chat-completions endpoint when `LLM_BASE_URL`, `LLM_API_KEY`, and `LLM_MODEL` are present **and** the visitor opts in to external AI. Set the base URL including its API prefix, for example `https://api.example.com/v1/`. Put the key in ignored `.dev.vars` for local development or an encrypted Cloudflare secret for a future approved deployment; never set it in Vite variables or a workflow JSON export. The alternative Cloudflare Workers AI adapter uses the approved Llama 3.1 model if an `AI` binding is configured. The public deployment currently has neither an AI binding nor external LLM secrets, so lead qualification uses deterministic rules.

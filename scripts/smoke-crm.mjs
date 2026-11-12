@@ -48,7 +48,7 @@ assert.equal((await readActivity()).events.find(event => event.event_key === `${
 assert.equal((await owner(`/api/owner/appointments/${appointment.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'cancelled' }) })).status, 200);
 assert.equal((await owner(`/api/owner/customers/${encodeURIComponent(contact)}`, { method: 'DELETE' })).status, 200);
 execFileSync('node', ['scripts/wrangler.mjs', 'd1', 'execute', 'microbizflow-local', '--config', 'wrangler.worker.toml', '--local',
-  '--command', `UPDATE crm_sync_events SET state='failed',attempts=0 WHERE event_key='${appointment.id}:created'`], { stdio: 'pipe' });
+  '--command', `UPDATE crm_sync_events SET state='failed',attempts=0,next_attempt_at=0 WHERE event_key='${appointment.id}:created'`], { stdio: 'pipe' });
 const retried = await owner('/api/owner/integrations/run', { method: 'POST' });
 assert.equal(retried.status, 200);
 assert.equal((await readActivity()).events.find(event => event.event_key === `${appointment.id}:created`)?.state, 'skipped');
