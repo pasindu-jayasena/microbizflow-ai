@@ -62,7 +62,8 @@ export async function purgeExpiredCustomers(db: D1Database, businessId: string, 
     SELECT id FROM enquiry_analyses WHERE business_id=? AND appointment_id IS NULL AND created_at<datetime(?)
     ORDER BY created_at,id LIMIT ?)`).bind(businessId,cutoff,maxUnbookedEnquiries).run();
   const due = await db.prepare(`SELECT c.contact_key FROM customer_records c WHERE c.business_id=?
-    AND c.updated_at<datetime(?)
+    AND (c.updated_at<datetime(?) OR EXISTS
+      (SELECT 1 FROM appointments prior WHERE prior.business_id=c.business_id AND lower(trim(prior.customer_contact))=c.contact_key))
     AND NOT EXISTS (SELECT 1 FROM appointments a WHERE a.business_id=c.business_id AND lower(trim(a.customer_contact))=c.contact_key
       AND (a.status IN ('pending','confirmed') OR a.end_at>=?))
     ORDER BY c.updated_at,c.contact_key LIMIT ?`).bind(businessId,cutoff,cutoff,maxCustomers).all<{ contact_key: string }>();

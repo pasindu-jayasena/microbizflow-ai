@@ -1,19 +1,20 @@
 import { bookingInput, availableSlots, localDay, slotInterval, withinBookingWindow } from '../../shared/booking';
 import { z } from 'zod';
-import { allowPublicBooking, login, logout, ownerBusiness } from './auth';
+import { allowPublicBooking, login, logout, ownerBusiness, sha256 } from './auth';
 import { allowedRequestOrigin } from './origin';
 import { canTransition, type AppointmentStatus } from '../../shared/appointments';
 import { Temporal } from '@js-temporal/polyfill';
 import { analyzeEnquiry, cloudflareProvider, type AiBinding } from './ai';
-import { approveNotification, deliverApproved, processEvent, processPendingEvents, queueUpcomingReminders } from './workflows';
+import { approveNotification, deliverApproved, processEvent, processPendingEvents, queueCompletedFollowups, queueUpcomingReminders } from './workflows';
 import { businessProfile, hoursConfig, serviceConfig } from '../../shared/config';
 import { processInboundWebhook, processPendingInboundWebhooks, verifyWebhook } from './webhooks';
 import { appointmentsCsv, listAppointments, parseAppointmentFilter } from './appointment-list';
 import { eraseCustomerDetails, purgeExpiredCustomers, resetExpiredDemoBookings } from './privacy';
 import { processCrmEvent, processPendingCrmEvents } from './crm';
 import { cloudflareLeadProvider, leadInput, leadPayloadHash, openAiLeadProvider, qualifyLead, saveLead } from './leads';
+import { cloudflareDraftProvider, openAiDraftProvider, type DraftProvider } from './drafts';
 
-interface Env { DB: D1Database; DEMO_BUSINESS_SLUG: string; ALLOWED_ORIGIN: string; DEMO_MODE?: string; OWNER_USERNAME?: string; OWNER_PASSWORD_HASH?: string; WEBHOOK_SECRET?: string; AI?: AiBinding; AI_MODEL?: string; LLM_BASE_URL?: string; LLM_API_KEY?: string; LLM_MODEL?: string }
+interface Env { DB: D1Database; DEMO_BUSINESS_SLUG: string; ALLOWED_ORIGIN: string; DEMO_MODE?: string; OWNER_USERNAME?: string; OWNER_PASSWORD_HASH?: string; WEBHOOK_SECRET?: string; AI?: AiBinding; AI_MODEL?: string; LLM_BASE_URL?: string; LLM_API_KEY?: string; LLM_MODEL?: string; DRAFT_AI_ENABLED?: string; AUTOMATION_TICK_TOKEN?: string }
 interface Business { id: string; slug: string; name: string; description: string; timezone: string; currency: string; address: string; phone: string }
 interface Service { id: string; name: string; description: string; duration_min: number; price_minor: number }
 interface Appointment { id: string; reference: string; service_id: string; start_at: string; end_at: string; status: string; customer_contact: string; idempotency_key: string }
@@ -21,6 +22,15 @@ interface Appointment { id: string; reference: string; service_id: string; start
 const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' };
 const json = (value: unknown, status = 200, extra: HeadersInit = {}) => new Response(JSON.stringify(value), { status, headers: { ...headers, ...extra } });
 const bad = (error: string, status = 400) => json({ error }, status);
+
+function draftProvider(env: Env): DraftProvider | undefined {
+  if (env.DRAFT_AI_ENABLED !== 'true') return undefined;
+  try {
+    if (env.LLM_BASE_URL && env.LLM_API_KEY && env.LLM_MODEL) return openAiDraftProvider(env.LLM_BASE_URL,env.LLM_API_KEY,env.LLM_MODEL);
+    if (env.AI) return cloudflareDraftProvider(env.AI);
+  } catch { /* Invalid optional AI configuration uses deterministic drafts. */ }
+  return undefined;
+}
 
 async function readText(request: Request): Promise<string> {
   const reader = request.body?.getReader();
@@ -66,6 +76,20 @@ async function handle(request: Request, env: Env): Promise<Response> {
   if (url.pathname === '/api/health' && request.method === 'GET') return json({ ok: true });
   const b = await business(env.DB, env.DEMO_BUSINESS_SLUG);
   if (!b) return bad('Business is not configured', 503);
+
+  if (url.pathname === '/api/automation/tick' && request.method === 'POST') {
+    if (!env.AUTOMATION_TICK_TOKEN || env.AUTOMATION_TICK_TOKEN.length < 32) return bad('Automation endpoint is not configured',503);
+    const supplied = request.headers.get('Authorization')?.match(/^Bearer ([A-Za-z0-9_-]{32,200})$/)?.[1];
+    if (!supplied) return bad('Automation authentication required',401);
+    const [expectedHash,actualHash] = await Promise.all([sha256(env.AUTOMATION_TICK_TOKEN),sha256(supplied)]);
+    let difference = 0;
+    for (let i=0;i<expectedHash.length;i++) difference |= expectedHash.charCodeAt(i)^actualHash.charCodeAt(i);
+    if (difference !== 0) return bad('Automation authentication required',401);
+    const reminders = await queueUpcomingReminders(env.DB,b.id);
+    const followups = await queueCompletedFollowups(env.DB,b.id);
+    const events = await processPendingEvents(env.DB,b.id,2,draftProvider(env));
+    return json({reminders,followups,...events});
+  }
 
   if (url.pathname === '/api/webhooks/inbound' && request.method === 'POST') {
     if (!env.WEBHOOK_SECRET || env.WEBHOOK_SECRET.length < 32) return bad('Webhook integration is not configured', 503);
@@ -285,14 +309,18 @@ async function handle(request: Request, env: Env): Promise<Response> {
       return json({ workflows: rows.results });
     }
     if (url.pathname === '/api/owner/workflows/run' && request.method === 'POST') {
-      return json(await processPendingEvents(env.DB, b.id));
+      return json(await processPendingEvents(env.DB, b.id,10,draftProvider(env)));
     }
     if (url.pathname === '/api/owner/reminders/run' && request.method === 'POST') {
       const queued = await queueUpcomingReminders(env.DB,b.id);
-      return json({ queued, ...await processPendingEvents(env.DB,b.id) });
+      return json({ queued, ...await processPendingEvents(env.DB,b.id,10,draftProvider(env)) });
+    }
+    if (url.pathname === '/api/owner/followups/run' && request.method === 'POST') {
+      const queued = await queueCompletedFollowups(env.DB,b.id);
+      return json({ queued, ...await processPendingEvents(env.DB,b.id,10,draftProvider(env)) });
     }
     if (url.pathname === '/api/owner/notifications' && request.method === 'GET') {
-      const rows = await env.DB.prepare(`SELECT n.id,n.event_key,n.kind,n.body,n.state,n.attempts,n.created_at,n.approved_at,n.delivered_at,a.reference,a.status AS appointment_status,a.start_at
+      const rows = await env.DB.prepare(`SELECT n.id,n.event_key,n.kind,n.body,n.state,n.attempts,n.created_at,n.approved_at,n.delivered_at,n.generation_mode,n.generation_latency_ms,a.reference,a.status AS appointment_status,a.start_at
         FROM notifications n JOIN appointments a ON a.id=n.appointment_id
         WHERE n.business_id=? ORDER BY n.id DESC LIMIT 50`).bind(b.id).all();
       return json({ notifications: rows.results });
@@ -322,7 +350,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
       if (!canTransition(current.status as AppointmentStatus, parsed.data.status)) return bad('Invalid status transition', 409);
       const updated = await env.DB.prepare('UPDATE appointments SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND business_id = ? AND status = ?').bind(parsed.data.status, id, b.id, current.status).run();
       if (updated.meta.changes < 1) return bad('Appointment changed. Refresh and try again.', 409);
-      try { await processEvent(env.DB, b.id, `${id}:status:${parsed.data.status}`); } catch { /* Durable event remains for manual retry. */ }
+      try { await processEvent(env.DB, b.id, `${id}:status:${parsed.data.status}`,draftProvider(env)); } catch { /* Durable event remains for manual retry. */ }
       try { await processCrmEvent(env.DB,b.id,`${id}:status:${parsed.data.status}`); } catch { /* Durable CRM event remains for retry. */ }
       return json({ id, status: parsed.data.status });
     }
@@ -405,7 +433,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
     const changed = await env.DB.prepare("UPDATE appointments SET status='cancelled',updated_at=CURRENT_TIMESTAMP WHERE id=? AND business_id=? AND status=?")
       .bind(item.id,b.id,item.status).run();
     if (changed.meta.changes < 1) return bad('Booking changed. Check its latest status.', 409);
-    try { await processEvent(env.DB,b.id,`${item.id}:status:cancelled`); } catch { /* Durable event remains for manual retry. */ }
+    try { await processEvent(env.DB,b.id,`${item.id}:status:cancelled`,draftProvider(env)); } catch { /* Durable event remains for manual retry. */ }
     try { await processCrmEvent(env.DB,b.id,`${item.id}:status:cancelled`); } catch { /* Durable CRM event remains for retry. */ }
     return json({ reference: item.reference, status: 'cancelled' });
   }
@@ -465,7 +493,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
           .bind(created.id,input.analysisId,b.id).run();
       } catch { /* Optional enquiry linking must not fail a committed booking. */ }
     }
-    try { await processEvent(env.DB, b.id, `${created.id}:created`); } catch { /* Durable event remains for manual retry. */ }
+    try { await processEvent(env.DB, b.id, `${created.id}:created`,draftProvider(env)); } catch { /* Durable event remains for manual retry. */ }
     try { await processCrmEvent(env.DB,b.id,`${created.id}:created`); } catch { /* Durable CRM event remains for retry. */ }
     return json({ reference: created.reference, status: created.status, cancellationCode: created.idempotency_key }, 201);
   }
@@ -493,7 +521,8 @@ export default {
     // Keep each invocation small for Workers Free CPU and D1 request limits.
     if (env.DEMO_MODE !== 'false') await resetExpiredDemoBookings(env.DB,b.id);
     await queueUpcomingReminders(env.DB,b.id);
-    await processPendingEvents(env.DB,b.id,2);
+    await queueCompletedFollowups(env.DB,b.id);
+    await processPendingEvents(env.DB,b.id,2,draftProvider(env));
     await processPendingInboundWebhooks(env.DB,b.id,2);
     await processPendingCrmEvents(env.DB,b.id,2);
     await purgeExpiredCustomers(env.DB,b.id,Date.now(),1,10);

@@ -30,6 +30,8 @@
     "test:security:local": "node scripts/smoke-security.mjs",
     "test:scheduled:local": "node scripts/smoke-scheduled.mjs",
     "test:reminders:local": "node scripts/smoke-reminders.mjs",
+    "test:followups:local": "node scripts/smoke-followups.mjs",
+    "test:automation-tick:local": "node scripts/smoke-automation-tick.mjs",
     "test:crm:local": "node scripts/smoke-crm.mjs",
     "test:demo:local": "node scripts/smoke-demo.mjs",
     "test:e2e": "playwright test",

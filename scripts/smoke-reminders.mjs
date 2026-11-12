@@ -13,7 +13,7 @@ for (let index = 0; index < 2; index++) {
   const id = crypto.randomUUID();
   const resource = `reminder_${id}`;
   const reference = `MBF-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
-  sql(`INSERT INTO resources(id,business_id,name,active) VALUES('${resource}','biz_demo','Fictional reminder test ${index}',0)`);
+  sql(`INSERT INTO resources(id,business_id,name,active) VALUES('${resource}','biz_demo','Fictional reminder test ${index} ${id.slice(0,8)}',0)`);
   sql(`INSERT INTO appointments(id,reference,business_id,service_id,resource_id,customer_name,customer_contact,customer_note,start_at,end_at,status,idempotency_key)
     VALUES('${id}','${reference}','biz_demo','svc_cut','${resource}','Fictional Reminder Test','reminder-${id}@example.invalid','','${start}','${end}','confirmed','${crypto.randomUUID()}')`);
   appointments.push({ id, reference });

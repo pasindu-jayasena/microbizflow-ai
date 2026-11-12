@@ -1,3 +1,5 @@
+import { generateDraft, type DraftProvider } from './drafts';
+
 export interface MockDeliveryAdapter {
   deliver(body: string): Promise<void>;
 }
@@ -21,6 +23,7 @@ interface EventRow {
 export function draftForEvent(event: Pick<EventRow, 'kind' | 'subject_status' | 'reference' | 'service_name'>): { kind: 'owner_notice' | 'customer_draft'; body: string; state: 'mock_delivered' | 'needs_approval' } {
   const reference = event.reference;
   if (event.subject_status === 'reminder_due') return { kind: 'customer_draft', body: `Reminder: your booking ${reference} is coming up. Please contact the business if your plans changed.`, state: 'needs_approval' };
+  if (event.subject_status === 'followup_due') return { kind: 'customer_draft', body: `Thank you for visiting. We hope you enjoyed your ${event.service_name}. Your booking reference was ${reference}.`, state: 'needs_approval' };
   if (event.kind === 'booking_requested') return { kind: 'owner_notice', body: `Booking ${reference} (${event.service_name}) is waiting for review.`, state: 'mock_delivered' };
   if (event.subject_status === 'confirmed') return { kind: 'customer_draft', body: `Your booking ${reference} has been confirmed.`, state: 'needs_approval' };
   if (event.subject_status === 'declined') return { kind: 'customer_draft', body: `Your booking request ${reference} was declined.`, state: 'needs_approval' };
@@ -28,7 +31,7 @@ export function draftForEvent(event: Pick<EventRow, 'kind' | 'subject_status' | 
   return { kind: 'owner_notice', body: `Booking ${reference} is now ${event.subject_status}.`, state: 'mock_delivered' };
 }
 
-export async function processEvent(db: D1Database, businessId: string, eventKey: string): Promise<boolean> {
+export async function processEvent(db: D1Database, businessId: string, eventKey: string, provider?: DraftProvider): Promise<boolean> {
   const now = Date.now();
   const claimed = await db.prepare(`UPDATE workflow_events SET state='processing', attempts=attempts+1, lease_until=?, updated_at=CURRENT_TIMESTAMP
     WHERE business_id=? AND event_key=? AND attempts<3 AND (state IN ('pending','failed') OR (state='processing' AND lease_until<?))`).bind(now + 60_000, businessId, eventKey, now).run();
@@ -43,9 +46,17 @@ export async function processEvent(db: D1Database, businessId: string, eventKey:
         .bind(businessId,eventKey).run();
       return true;
     }
+    if (event.subject_status === 'followup_due' && event.appointment_status !== 'completed') {
+      await db.prepare("UPDATE workflow_events SET state='done',lease_until=0,last_error=NULL,updated_at=CURRENT_TIMESTAMP WHERE business_id=? AND event_key=?")
+        .bind(businessId,eventKey).run();
+      return true;
+    }
     const draft = draftForEvent(event);
-    await db.prepare(`INSERT OR IGNORE INTO notifications (business_id,appointment_id,event_key,kind,body,state,delivered_at)
-      VALUES (?,?,?,?,?,?,CASE WHEN ?='mock_delivered' THEN CURRENT_TIMESTAMP ELSE NULL END)`).bind(businessId, event.appointment_id, event.event_key, draft.kind, draft.body, draft.state, draft.state).run();
+    const generated = draft.kind === 'customer_draft'
+      ? await generateDraft(event,draft.body,provider) : { body:draft.body, mode:'rules' as const,latencyMs:0 };
+    await db.prepare(`INSERT OR IGNORE INTO notifications (business_id,appointment_id,event_key,kind,body,state,delivered_at,generation_mode,generation_latency_ms)
+      VALUES (?,?,?,?,?,?,CASE WHEN ?='mock_delivered' THEN CURRENT_TIMESTAMP ELSE NULL END,?,?)`)
+      .bind(businessId,event.appointment_id,event.event_key,draft.kind,generated.body,draft.state,draft.state,generated.mode,generated.latencyMs).run();
     await db.prepare("UPDATE workflow_events SET state='done', lease_until=0, last_error=NULL, updated_at=CURRENT_TIMESTAMP WHERE business_id=? AND event_key=?").bind(businessId, eventKey).run();
     return true;
   } catch {
@@ -66,13 +77,24 @@ export async function queueUpcomingReminders(db: D1Database, businessId: string,
   return result.meta.changes;
 }
 
-export async function processPendingEvents(db: D1Database, businessId: string, limit = 10): Promise<{ processed: number; failed: number }> {
+export async function queueCompletedFollowups(db: D1Database, businessId: string, now = Date.now()): Promise<number> {
+  const earliest = new Date(now - 30 * 86_400_000).toISOString();
+  const latest = new Date(now - 24 * 60 * 60_000).toISOString();
+  const result = await db.prepare(`INSERT OR IGNORE INTO workflow_events(business_id,appointment_id,event_key,kind,subject_status)
+    SELECT a.business_id,a.id,a.id || ':followup','status_changed','followup_due' FROM appointments a
+    WHERE a.business_id=? AND a.status='completed' AND a.end_at>=? AND a.end_at<=?
+      AND NOT EXISTS (SELECT 1 FROM workflow_events e WHERE e.event_key=a.id || ':followup')
+    ORDER BY a.end_at LIMIT 10`).bind(businessId,earliest,latest).run();
+  return result.meta.changes;
+}
+
+export async function processPendingEvents(db: D1Database, businessId: string, limit = 10, provider?: DraftProvider): Promise<{ processed: number; failed: number }> {
   const due = await db.prepare(`SELECT event_key FROM workflow_events WHERE business_id=? AND attempts<3
     AND (state IN ('pending','failed') OR (state='processing' AND lease_until<?)) ORDER BY id LIMIT ?`).bind(businessId, Date.now(), limit).all<{ event_key: string }>();
   let processed = 0;
   let failed = 0;
   for (const event of due.results) {
-    if (await processEvent(db, businessId, event.event_key)) processed++;
+    if (await processEvent(db, businessId, event.event_key,provider)) processed++;
     else failed++;
   }
   return { processed, failed };
@@ -81,8 +103,10 @@ export async function processPendingEvents(db: D1Database, businessId: string, l
 export async function approveNotification(db: D1Database, businessId: string, id: number): Promise<boolean> {
   const result = await db.prepare(`UPDATE notifications SET state='approved', approved_at=CURRENT_TIMESTAMP
     WHERE id=? AND business_id=? AND state='needs_approval' AND (event_key NOT LIKE '%:reminder' OR EXISTS
-      (SELECT 1 FROM appointments a WHERE a.id=notifications.appointment_id AND a.business_id=? AND a.status='confirmed' AND a.start_at>?))`)
-    .bind(id,businessId,businessId,new Date().toISOString()).run();
+      (SELECT 1 FROM appointments a WHERE a.id=notifications.appointment_id AND a.business_id=? AND a.status='confirmed' AND a.start_at>?))
+      AND (event_key NOT LIKE '%:followup' OR EXISTS
+      (SELECT 1 FROM appointments a WHERE a.id=notifications.appointment_id AND a.business_id=? AND a.status='completed'))`)
+    .bind(id,businessId,businessId,new Date().toISOString(),businessId).run();
   return result.meta.changes >= 1;
 }
 
@@ -91,8 +115,10 @@ export async function deliverApproved(db: D1Database, businessId: string, id: nu
   const claim = await db.prepare(`UPDATE notifications SET state='sending', attempts=attempts+1, lease_until=?
     WHERE id=? AND business_id=? AND attempts<3 AND (state IN ('approved','failed') OR (state='sending' AND lease_until<?))
       AND (event_key NOT LIKE '%:reminder' OR EXISTS
-        (SELECT 1 FROM appointments a WHERE a.id=notifications.appointment_id AND a.business_id=? AND a.status='confirmed' AND a.start_at>?))`)
-    .bind(now + 60_000,id,businessId,now,businessId,new Date(now).toISOString()).run();
+        (SELECT 1 FROM appointments a WHERE a.id=notifications.appointment_id AND a.business_id=? AND a.status='confirmed' AND a.start_at>?))
+      AND (event_key NOT LIKE '%:followup' OR EXISTS
+        (SELECT 1 FROM appointments a WHERE a.id=notifications.appointment_id AND a.business_id=? AND a.status='completed'))`)
+    .bind(now + 60_000,id,businessId,now,businessId,new Date(now).toISOString(),businessId).run();
   if (claim.meta.changes < 1) return false;
   try {
     const row = await db.prepare('SELECT body FROM notifications WHERE id=? AND business_id=?').bind(id, businessId).first<{ body: string }>();

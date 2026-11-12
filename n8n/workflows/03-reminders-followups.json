@@ -1,0 +1,69 @@
+{
+  "name": "MicroBizFlow 03 - Scheduled reminders and follow-ups",
+  "nodes": [
+    {
+      "parameters": { "rule": { "interval": [{ "field": "hours", "hoursInterval": 1 }] } },
+      "id": "49911a82-01a6-4a43-b2ed-7b3e690a1f16",
+      "name": "Every hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [220, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8788/api/automation/tick",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": { "timeout": 10000 }
+      },
+      "id": "55687088-f93a-41a2-a49a-7e858eaec88e",
+      "name": "Queue due drafts on schedule",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 180],
+      "credentials": { "httpHeaderAuth": { "id": "mbf-local-automation", "name": "Local MicroBizFlow automation" } }
+    },
+    {
+      "parameters": { "httpMethod": "POST", "path": "microbizflow/automation-tick", "responseMode": "responseNode", "options": {} },
+      "id": "2c034b2b-d788-4e98-84e3-dfd68103c890",
+      "name": "Manual local trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 430],
+      "webhookId": "2c034b2b-d788-4e98-84e3-dfd68103c890"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8788/api/automation/tick",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": { "timeout": 10000 }
+      },
+      "id": "4d31bdaf-5b12-4397-b744-16b697b2ae4c",
+      "name": "Queue due drafts manually",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 430],
+      "credentials": { "httpHeaderAuth": { "id": "mbf-local-automation", "name": "Local MicroBizFlow automation" } }
+    },
+    {
+      "parameters": { "respondWith": "json", "responseBody": "={{ JSON.stringify($json) }}", "options": {} },
+      "id": "64f25e08-4eb2-457a-a7e4-ab5beaa1f69c",
+      "name": "Return queue counts",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [760, 430]
+    }
+  ],
+  "connections": {
+    "Every hour": { "main": [[{ "node": "Queue due drafts on schedule", "type": "main", "index": 0 }]] },
+    "Manual local trigger": { "main": [[{ "node": "Queue due drafts manually", "type": "main", "index": 0 }]] },
+    "Queue due drafts manually": { "main": [[{ "node": "Return queue counts", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1", "timezone": "Asia/Colombo" },
+  "active": false,
+  "pinData": {},
+  "meta": { "templateCredsSetupCompleted": false }
+}

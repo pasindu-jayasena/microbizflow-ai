@@ -93,6 +93,12 @@ Added a second n8n Community workflow that checks current availability before su
 
 The next automation feature is scheduled reminders and owner-approved follow-up drafts with a corresponding n8n import.
 
+## 2026-11-13 — Scheduled reminders and follow-up drafts
+
+Extended the durable event processor to queue one follow-up draft for a completed visit between 24 hours and 30 days old, with the same approval gate and mock-only delivery as reminders. Added configurable LLM draft generation with schema, length, exact-reference, URL, and contact checks; failures use deterministic drafts. D1 migration `0011_notification_generation.sql` records generation mode and latency. A scoped automation tick token allows local n8n to enqueue due drafts without an owner credential; the public deployment leaves that token unset and continues using its private hourly Worker Cron. The new follow-up code and migration are local and on `deploymentBranch`; production has not been updated yet.
+
+The local reminder and follow-up smokes passed with a disposable owner, including idempotency, cancellation guard, private access, approval, and mock delivery. n8n 2.47.4 imported the scheduled workflow and its local manual trigger completed successfully in about 159 ms. The hourly n8n timer itself has not been observed. The next feature is a real external CRM adapter with idempotent retry handling; provider credentials are not yet available for a live external call.
+
 ## Next work
 
 Continue monitoring Cloudflare Free usage and the hourly Cron's CPU and outcome. The owner should save the ignored production password in a password manager before deleting its local file. Future UI and feature changes should continue through `deploymentBranch`, green CI, verified owner pushes, and explicit Pages deployments.
