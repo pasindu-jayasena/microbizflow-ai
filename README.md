@@ -142,6 +142,8 @@ Owner sessions use HTTP-only cookies. Public booking requests and login attempts
 
 ## Project documents
 
+The [five-workflow production release plan](docs/automation-deployment-plan.md) lists the exact migration, Free-tier, security, and verification steps awaiting approval.
+
 - [Roadmap and progress](docs/roadmap.md) · [Progress log](docs/progress.md)
 - [Architecture](docs/architecture.md) · [Automation](docs/automation.md) · [Testing](docs/testing.md) · [Deployment](docs/deployment.md)
 - [Security](SECURITY.md) · [Privacy](PRIVACY.md) · [Contributing](CONTRIBUTING.md) · [Code of Conduct](CODE_OF_CONDUCT.md)

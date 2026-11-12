@@ -113,4 +113,4 @@ Next: run full regression, review the Free-tier deployment impact of migrations 
 
 ## Next work
 
-Prepare a reviewed production migration and release plan for the four pending D1 migrations. Keep the public demo in mock CRM and rules mode until scoped development credentials and a separate AI binding approval are available. Check branch CI, exact production resource bindings, and Cloudflare Free limits before any deployment. The owner should save the ignored production password in a password manager before deleting its local file.
+The [five-workflow release plan](automation-deployment-plan.md) identifies exactly four pending D1 migrations and reuses the existing Pages, D1, and private Cron Worker. Keep the public demo in mock CRM and rules mode until scoped development credentials and a separate AI binding approval are available. Require green branch CI, reviewed PR, and the owner's approval of the new production migration plan before deployment. The owner should save the ignored production password in a password manager before deleting its local file.

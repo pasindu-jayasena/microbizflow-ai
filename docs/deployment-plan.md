@@ -4,6 +4,8 @@
 
 Approved resources: D1 `microbizflow-demo` in APAC (UUID `8999f517-eabe-4923-a647-5fcaa6d85017`), Pages Direct Upload project `microbizflow-ai` with production branch `main`, and private scheduled Worker `microbizflow-api`. The Pages site and Worker were deployed on 2026-11-12. The production Wrangler configurations refer to this verified D1 UUID; local Worker development retains a placeholder ID and cannot reach remote D1. The scheduled trigger is deployed; its first live invocation and CPU time await observation.
 
+The proposed five-workflow update has a separate [deployment readiness plan](automation-deployment-plan.md) and awaits owner approval. This document records the earlier initial release.
+
 ## Account and cost boundary
 
 Wrangler authenticated the Cloudflare account associated with `pasindujayasena.biz@gmail.com`. The owner checked the Billing dashboard on 2026-11-11 and reported Workers Free active, R2 Paid canceled, no other paid developer subscriptions, a $0.00 balance, and no unpaid invoices or unexpected usage. The OAuth token cannot read billing (HTTP 403), so the dashboard result is owner-reported. Stop if the account, plan, or billing status changes.
