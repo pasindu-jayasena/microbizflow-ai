@@ -4,7 +4,7 @@ import { allowPublicBooking, login, logout, ownerBusiness, sha256 } from './auth
 import { allowedRequestOrigin } from './origin';
 import { canTransition, type AppointmentStatus } from '../../shared/appointments';
 import { Temporal } from '@js-temporal/polyfill';
-import { analyzeEnquiry, cloudflareProvider, type AiBinding } from './ai';
+import { analyzeEnquiry, cloudflareProvider, FREE_AI_MODEL, type AiBinding } from './ai';
 import { approveNotification, deliverApproved, processEvent, processPendingEvents, queueCompletedFollowups, queueUpcomingReminders } from './workflows';
 import { businessProfile, hoursConfig, serviceConfig } from '../../shared/config';
 import { processInboundWebhook, processPendingInboundWebhooks, verifyWebhook } from './webhooks';
@@ -28,7 +28,7 @@ function draftProvider(env: Env): DraftProvider | undefined {
   if (env.DRAFT_AI_ENABLED !== 'true') return undefined;
   try {
     if (env.LLM_BASE_URL && env.LLM_API_KEY && env.LLM_MODEL) return openAiDraftProvider(env.LLM_BASE_URL,env.LLM_API_KEY,env.LLM_MODEL);
-    if (env.AI) return cloudflareDraftProvider(env.AI);
+    if (env.AI) return cloudflareDraftProvider(env.AI, FREE_AI_MODEL);
   } catch { /* Invalid optional AI configuration uses deterministic drafts. */ }
   return undefined;
 }
@@ -44,7 +44,7 @@ function operationProvider(env: Env): OperationProvider | undefined {
   if (env.OPERATIONS_AI_ENABLED !== 'true') return undefined;
   try {
     if (env.LLM_BASE_URL && env.LLM_API_KEY && env.LLM_MODEL) return openAiOperationProvider(env.LLM_BASE_URL,env.LLM_API_KEY,env.LLM_MODEL);
-    if (env.AI) return cloudflareOperationProvider(env.AI);
+    if (env.AI) return cloudflareOperationProvider(env.AI, FREE_AI_MODEL);
   } catch { /* Invalid optional AI settings use deterministic intents. */ }
   return undefined;
 }
@@ -413,10 +413,8 @@ async function handle(request: Request, env: Env): Promise<Response> {
     if (!parsed.success) return bad('Please enter a short enquiry');
     const offered = await env.DB.prepare('SELECT id,name FROM services WHERE business_id = ? AND active = 1 ORDER BY sort_order').bind(b.id).all<{ id: string; name: string }>();
     const today = Temporal.Now.zonedDateTimeISO(b.timezone).toPlainDate().toString();
-    const allowedModels = new Set(['@cf/meta/llama-3.1-8b-instruct', '@cf/meta/llama-3-8b-instruct']);
-    const configuredModel = env.AI_MODEL || '@cf/meta/llama-3.1-8b-instruct';
-    const provider = parsed.data.consentExternalAI && env.AI && allowedModels.has(configuredModel)
-      ? cloudflareProvider(env.AI, configuredModel) : undefined;
+    const provider = parsed.data.consentExternalAI && env.AI && (!env.AI_MODEL || env.AI_MODEL === FREE_AI_MODEL)
+      ? cloudflareProvider(env.AI, FREE_AI_MODEL) : undefined;
     const analysis = await analyzeEnquiry(parsed.data.text, offered.results, b.timezone, today, provider);
     const analysisId = crypto.randomUUID();
     await env.DB.prepare(`INSERT INTO enquiry_analyses(id,business_id,service_id,requested_date,requested_time,language,missing_fields,mode,latency_ms)
@@ -446,7 +444,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
       try {
         provider = env.LLM_BASE_URL && env.LLM_API_KEY && env.LLM_MODEL
           ? openAiLeadProvider(env.LLM_BASE_URL,env.LLM_API_KEY,env.LLM_MODEL)
-          : env.AI ? cloudflareLeadProvider(env.AI) : undefined;
+          : env.AI && (!env.AI_MODEL || env.AI_MODEL === FREE_AI_MODEL) ? cloudflareLeadProvider(env.AI, FREE_AI_MODEL) : undefined;
       } catch { /* Invalid optional configuration leaves the rules path available. */ }
     }
     const result = await qualifyLead(input,offered.results,b.timezone,today,provider);

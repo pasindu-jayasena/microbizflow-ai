@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const placeholder = '00000000-0000-0000-0000-000000000000';
+const approvedAiModel = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function parseConfig(source) {
@@ -10,7 +11,7 @@ function parseConfig(source) {
   for (const raw of source.split(/\r?\n/)) {
     const line = raw.trim();
     if (!line || line.startsWith('#')) continue;
-    if (/^(?:\[[a-z0-9_]+\]|\[\[[a-z0-9_]+\]\])$/.test(line)) {
+    if (/^(?:\[[a-z0-9_.]+\]|\[\[[a-z0-9_.]+\]\])$/.test(line)) {
       section = line.replace(/^\[+|\]+$/g, '');
       if (sections.has(section)) throw new Error(`Duplicate section: ${section}`);
       sections.set(section, {});
@@ -40,14 +41,18 @@ function requireValue(condition, message) {
 export function checkDeploymentConfig(pagesSource, workerSource) {
   const pages = parseConfig(pagesSource);
   const worker = parseConfig(workerSource);
-  requireValue([...pages.keys()].sort().join(',') === 'd1_databases,root,vars', 'Pages may contain only root, one D1 binding, and vars');
-  requireValue([...worker.keys()].sort().join(',') === 'd1_databases,root,triggers,vars', 'Worker may contain only root, one D1 binding, triggers, and vars');
+  requireValue([...pages.keys()].sort().join(',') === 'd1_databases,env.production.ai,env.production.d1_databases,env.production.vars,root,vars', 'Pages may contain only the local baseline and one production AI/D1 configuration');
+  requireValue([...worker.keys()].sort().join(',') === 'ai,d1_databases,root,triggers,vars', 'Worker may contain only root, one AI binding, one D1 binding, triggers, and vars');
   assertKeys(pages.get('root'), ['name', 'pages_build_output_dir', 'compatibility_date'], 'Pages root');
   assertKeys(worker.get('root'), ['name', 'main', 'compatibility_date', 'workers_dev', 'preview_urls'], 'Worker root');
   assertKeys(pages.get('d1_databases'), ['binding', 'database_name', 'database_id', 'preview_database_id', 'migrations_dir'], 'Pages D1');
   assertKeys(worker.get('d1_databases'), ['binding', 'database_name', 'database_id', 'migrations_dir'], 'Worker D1');
   assertKeys(pages.get('vars'), ['DEMO_BUSINESS_SLUG', 'DEMO_MODE', 'ALLOWED_ORIGIN'], 'Pages vars');
-  assertKeys(worker.get('vars'), ['DEMO_BUSINESS_SLUG', 'DEMO_MODE', 'ALLOWED_ORIGIN'], 'Worker vars');
+  assertKeys(pages.get('env.production.d1_databases'), ['binding', 'database_name', 'database_id', 'preview_database_id', 'migrations_dir'], 'Pages production D1');
+  assertKeys(pages.get('env.production.vars'), ['DEMO_BUSINESS_SLUG', 'DEMO_MODE', 'ALLOWED_ORIGIN', 'AI_MODEL', 'DRAFT_AI_ENABLED', 'OPERATIONS_AI_ENABLED'], 'Pages production vars');
+  assertKeys(pages.get('env.production.ai'), ['binding'], 'Pages production AI');
+  assertKeys(worker.get('vars'), ['DEMO_BUSINESS_SLUG', 'DEMO_MODE', 'ALLOWED_ORIGIN', 'AI_MODEL', 'DRAFT_AI_ENABLED'], 'Worker vars');
+  assertKeys(worker.get('ai'), ['binding'], 'Worker AI');
   assertKeys(worker.get('triggers'), ['crons'], 'Worker triggers');
 
   const pageRoot = pages.get('root');
@@ -55,6 +60,8 @@ export function checkDeploymentConfig(pagesSource, workerSource) {
   const pageDb = pages.get('d1_databases');
   const workerDb = worker.get('d1_databases');
   const pageVars = pages.get('vars');
+  const pageProdDb = pages.get('env.production.d1_databases');
+  const pageProdVars = pages.get('env.production.vars');
   const workerVars = worker.get('vars');
   requireValue(pageRoot.name === 'microbizflow-ai' && pageRoot.pages_build_output_dir === './dist/web', 'Unexpected Pages project or output directory');
   requireValue(workerRoot.name === 'microbizflow-api' && workerRoot.main === 'worker/src/index.ts', 'Unexpected Worker name or entrypoint');
@@ -66,11 +73,15 @@ export function checkDeploymentConfig(pagesSource, workerSource) {
   requireValue(uuid.test(pageDb.database_id) && pageDb.database_id !== placeholder && workerDb.database_id === pageDb.database_id, 'Both runtimes need the same real D1 ID');
   requireValue(pageDb.migrations_dir === 'db/migrations' && workerDb.migrations_dir === pageDb.migrations_dir, 'Unexpected migrations directory');
   requireValue(pageDb.preview_database_id === 'DB', 'Unexpected Pages local preview binding');
-  requireValue(pageVars.DEMO_MODE === 'true' && workerVars.DEMO_MODE === 'true', 'Public deployment must keep demo mode enabled');
-  requireValue(pageVars.DEMO_BUSINESS_SLUG === 'harbour-cut' && workerVars.DEMO_BUSINESS_SLUG === pageVars.DEMO_BUSINESS_SLUG, 'Demo business slugs must match');
+  requireValue(JSON.stringify(pageProdDb) === JSON.stringify(pageDb), 'Pages production must use the same approved D1 binding');
+  requireValue(pageVars.DEMO_MODE === 'true' && pageProdVars.DEMO_MODE === 'true' && workerVars.DEMO_MODE === 'true', 'Public deployment must keep demo mode enabled');
+  requireValue(pageVars.DEMO_BUSINESS_SLUG === 'harbour-cut' && pageProdVars.DEMO_BUSINESS_SLUG === pageVars.DEMO_BUSINESS_SLUG && workerVars.DEMO_BUSINESS_SLUG === pageVars.DEMO_BUSINESS_SLUG, 'Demo business slugs must match');
   const origin = `https://${pageRoot.name}.pages.dev`;
-  requireValue(pageVars.ALLOWED_ORIGIN === origin && workerVars.ALLOWED_ORIGIN === origin, `Both origins must be ${origin}`);
-  return { project: pageRoot.name, database: pageDb.database_name, origin };
+  requireValue(pageVars.ALLOWED_ORIGIN === origin && pageProdVars.ALLOWED_ORIGIN === origin && workerVars.ALLOWED_ORIGIN === origin, `Both origins must be ${origin}`);
+  requireValue(pages.get('env.production.ai').binding === 'AI' && worker.get('ai').binding === 'AI', 'Expected one Workers AI binding in each production runtime');
+  requireValue(pageProdVars.AI_MODEL === approvedAiModel && workerVars.AI_MODEL === approvedAiModel, 'Only the approved Free-access JSON model is allowed');
+  requireValue(pageProdVars.DRAFT_AI_ENABLED === 'true' && pageProdVars.OPERATIONS_AI_ENABLED === 'true' && workerVars.DRAFT_AI_ENABLED === 'true', 'Production AI workflows must be enabled');
+  return { project: pageRoot.name, database: pageDb.database_name, origin, aiModel: approvedAiModel };
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

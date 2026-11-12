@@ -22,7 +22,7 @@ The authenticated owner workspace includes an enquiry review queue, private cust
 
 ## Assistant and automation
 
-The live assistant extracts possible service and timing details from English or Sinhala enquiries without an external model. An optional Workers AI adapter is implemented but **not enabled** in this deployment. Suggestions never book an appointment: the visitor selects a real slot, and the API applies working-hours, timing, and capacity rules. Missing details remain open for the visitor to choose.
+The live assistant extracts possible service and timing details from English or Sinhala enquiries without an external model. The prepared `deploymentBranch` proposes a Free Workers AI binding for the next release; [the revised release plan](docs/automation-deployment-plan.md) awaits explicit approval. Suggestions never book an appointment: the visitor selects a real slot, and the API applies working-hours, timing, and capacity rules. Missing details remain open for the visitor to choose.
 
 Booking events create durable owner activity and customer drafts. The owner reviews requests and approves drafts before the mock delivery step. The [interactive workflow preview](https://microbizflow-ai.pages.dev/owner-preview) lets visitors inspect this sequence without signing in.
 
@@ -36,7 +36,7 @@ Booking events create durable owner activity and customer drafts. The owner revi
 | CRM synchronization | Durable event keys, retry backoff, dead-letter queue; optional non-demo HubSpot adapter | Import `04-crm-sync.json` and process due events |
 | Owner operations assistant | Fixed read-only business queries; explicit price proposals need owner approval | Import `05-owner-operations-assistant.json` and ask a scoped question |
 
-All five workflows have importable JSON, local execution checks, and Worker tests. The public demo has no model key or real CRM credential, so model calls and HubSpot delivery remain unverified. It sends no real customer messages. [Setup and observed results](docs/n8n.md) · [CRM boundary](docs/integrations.md).
+All five workflows have importable JSON, local execution checks, and Worker tests. The current live demo has no AI binding or real CRM credential; live Workers AI inference and HubSpot delivery remain unverified. The proposed Free Workers AI model will use consent, validated output, and rules fallback. It sends no real customer messages. [Setup and observed results](docs/n8n.md) · [CRM boundary](docs/integrations.md).
 
 ## Product preview
 

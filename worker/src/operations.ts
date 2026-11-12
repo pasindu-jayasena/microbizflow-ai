@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { AiBinding } from './ai';
+import { FREE_AI_MODEL, type AiBinding } from './ai';
 import { redactContact } from '../../shared/enquiry';
 
 export type OperationIntent = 'pending_count'|'upcoming_count'|'service_catalogue'|'failure_count'|'propose_price'|'unknown';
@@ -76,9 +76,9 @@ export function openAiOperationProvider(baseUrl:string,apiKey:string,model:strin
   }};
 }
 
-export function cloudflareOperationProvider(binding:AiBinding,model='@cf/meta/llama-3.1-8b-instruct'):OperationProvider {
+export function cloudflareOperationProvider(binding:AiBinding,model=FREE_AI_MODEL):OperationProvider {
   return {async classify(question,services) {
-    const output=await binding.run(model,{messages:[{role:'system',content:instructions(services)},{role:'user',content:redactContact(question)}],
+    const output=await binding.run(model,{temperature:0,max_tokens:160,messages:[{role:'system',content:instructions(services)},{role:'user',content:redactContact(question)}],
       response_format:{type:'json_schema',json_schema:{type:'object',properties:{intent:{type:'string'},serviceId:{type:['string','null']},price:{type:['number','null']}},required:['intent','serviceId','price']}}});
     if (output && typeof output==='object' && 'response' in output) return typeof output.response==='string'?JSON.parse(output.response):output.response;
     if (output && typeof output==='object' && 'choices' in output) {

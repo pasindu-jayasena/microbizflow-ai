@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { cloudflareLeadProvider, leadInput, openAiLeadProvider, qualifyLead } from './leads';
+import { FREE_AI_MODEL } from './ai';
 
 const services = [{ id: 'svc_cut', name: 'Signature haircut' }];
 const raw = { name: 'Sample Visitor', contact: 'sample@example.invalid', enquiry: 'Haircut tomorrow at 5 PM. Reach sample@example.invalid',
@@ -35,10 +36,12 @@ describe('lead qualification', () => {
     expect(failed.mode).toBe('fallback');
   });
   it('accepts a validated Workers AI response', async () => {
-    const run = vi.fn(async () => ({ response: { serviceId:'svc_cut',date:'2026-11-13',time:'17:00',language:'en',priority:'high' } }));
+    const run = vi.fn(async (...args:[string,unknown]) => { void args; return { response: { serviceId:'svc_cut',date:'2026-11-13',time:'17:00',language:'en',priority:'high' } }; });
     const result = await qualifyLead(input,services,'Asia/Colombo','2026-11-12',cloudflareLeadProvider({ run }));
     expect(result.mode).toBe('llm');
     expect(JSON.stringify(run.mock.calls)).not.toContain('sample@example.invalid');
+    expect(run.mock.calls[0]?.[0]).toBe(FREE_AI_MODEL);
+    expect(run.mock.calls[0]?.[1]).toMatchObject({temperature:0,max_tokens:160});
   });
   it('rejects insecure remote model endpoints', () => {
     expect(() => openAiLeadProvider('http://api.example.test/v1','key','model')).toThrow('HTTPS');

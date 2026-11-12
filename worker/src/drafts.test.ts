@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { cloudflareDraftProvider, generateDraft, openAiDraftProvider } from './drafts';
+import { FREE_AI_MODEL } from './ai';
 
 const context = { reference:'MBF-1234ABCD',service_name:'Signature haircut',subject_status:'followup_due' };
 const fallback = 'Thank you for visiting. Your booking MBF-1234ABCD is complete.';
@@ -25,8 +26,10 @@ describe('human-approved AI draft generation', () => {
     expect(failed.mode).toBe('fallback');
   });
   it('supports a validated Workers AI response and deterministic no-provider mode', async () => {
-    const run = vi.fn(async () => ({response:{body:'Your haircut is complete. Reference MBF-1234ABCD.'}}));
+    const run = vi.fn(async (...args:[string,unknown]) => { void args; return {response:{body:'Your haircut is complete. Reference MBF-1234ABCD.'}}; });
     expect((await generateDraft(context,fallback,cloudflareDraftProvider({run}))).mode).toBe('llm');
+    expect(run.mock.calls[0]?.[0]).toBe(FREE_AI_MODEL);
+    expect(run.mock.calls[0]?.[1]).toMatchObject({temperature:0,max_tokens:160});
     expect((await generateDraft(context,fallback)).mode).toBe('rules');
   });
 });

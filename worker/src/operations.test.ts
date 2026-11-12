@@ -1,5 +1,7 @@
 import { describe,expect,it,vi } from 'vitest';
 import { openAiOperationProvider, planOperation, rulesPlan, validatePlan, type OperationService } from './operations';
+import { cloudflareOperationProvider } from './operations';
+import { FREE_AI_MODEL } from './ai';
 
 const services:OperationService[]=[{id:'svc_cut',name:'Signature haircut',price_minor:250000}];
 
@@ -32,5 +34,11 @@ describe('owner operations assistant',()=>{
     });
     const provider=openAiOperationProvider('https://llm.example/v1/','local-test-key','test-model',request as typeof fetch);
     expect((await planOperation('How many pending appointments?',services,provider)).mode).toBe('llm');
+  });
+  it('uses the approved Workers AI model with a bounded response',async()=>{
+    const run=vi.fn(async(...args:[string,unknown])=>{ void args; return {response:{intent:'pending_count',serviceId:null,price:null}}; });
+    expect((await planOperation('How many pending appointments?',services,cloudflareOperationProvider({run}))).mode).toBe('llm');
+    expect(run.mock.calls[0]?.[0]).toBe(FREE_AI_MODEL);
+    expect(run.mock.calls[0]?.[1]).toMatchObject({temperature:0,max_tokens:160});
   });
 });

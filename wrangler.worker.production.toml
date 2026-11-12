@@ -17,3 +17,8 @@ migrations_dir = "db/migrations"
 DEMO_BUSINESS_SLUG = "harbour-cut"
 DEMO_MODE = "true"
 ALLOWED_ORIGIN = "https://microbizflow-ai.pages.dev"
+AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+DRAFT_AI_ENABLED = "true"
+
+[ai]
+binding = "AI"

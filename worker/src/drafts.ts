@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { AiBinding } from './ai';
+import { FREE_AI_MODEL, type AiBinding } from './ai';
 
 export interface DraftContext { reference: string; service_name: string; subject_status: string }
 export interface DraftProvider { generate(context: DraftContext): Promise<unknown> }
@@ -46,10 +46,10 @@ export function openAiDraftProvider(baseUrl: string, apiKey: string, model: stri
   };
 }
 
-export function cloudflareDraftProvider(binding: AiBinding, model = '@cf/meta/llama-3.1-8b-instruct'): DraftProvider {
+export function cloudflareDraftProvider(binding: AiBinding, model = FREE_AI_MODEL): DraftProvider {
   return {
     async generate(context): Promise<unknown> {
-      const output = await binding.run(model,{ messages:[{role:'system',content:instructions(context)}],
+      const output = await binding.run(model,{ temperature:0,max_tokens:160,messages:[{role:'system',content:instructions(context)}],
         response_format:{type:'json_schema',json_schema:{type:'object',properties:{body:{type:'string'}},required:['body']}} });
       if (output && typeof output === 'object' && 'response' in output) {
         return typeof output.response === 'string' ? JSON.parse(output.response) : output.response;

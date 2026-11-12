@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { analyzeEnquiry, cloudflareProvider } from './ai';
+import { analyzeEnquiry, cloudflareProvider, FREE_AI_MODEL } from './ai';
 
 const services = [{ id: 'cut', name: 'Signature haircut' }];
 const text = 'I need a haircut tomorrow at 5 PM. Email me at fake@example.com';
@@ -7,11 +7,13 @@ const date = '2026-11-11';
 
 describe('AI provider and fallback', () => {
   it('uses validated structured model output and redacts obvious contact data', async () => {
-    const run = vi.fn(async () => ({ response: { serviceId: 'cut', date: '2026-11-12', time: '17:00', language: 'en' } }));
+    const run = vi.fn(async (...args:[string,unknown]) => { void args; return { response: { serviceId: 'cut', date: '2026-11-12', time: '17:00', language: 'en' } }; });
     const result = await analyzeEnquiry(text, services, 'Asia/Colombo', date, cloudflareProvider({ run }));
     expect(result.mode).toBe('cloudflare');
     expect(result.intent.missing).toEqual([]);
     expect(JSON.stringify(run.mock.calls)).not.toContain('fake@example.com');
+    expect(run.mock.calls[0]?.[0]).toBe(FREE_AI_MODEL);
+    expect(run.mock.calls[0]?.[1]).toMatchObject({temperature:0,max_tokens:160});
   });
   it('falls back on invalid output and errors', async () => {
     const invalid = await analyzeEnquiry(text, services, 'Asia/Colombo', date, { extract: async () => ({ serviceId: 'fake' }) });
