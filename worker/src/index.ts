@@ -13,8 +13,9 @@ import { eraseCustomerDetails, purgeExpiredCustomers, resetExpiredDemoBookings }
 import { hubspotCrm, mockCrm, processCrmEvent, processPendingCrmEvents, type CrmAdapter } from './crm';
 import { cloudflareLeadProvider, leadInput, leadPayloadHash, openAiLeadProvider, qualifyLead, saveLead } from './leads';
 import { cloudflareDraftProvider, openAiDraftProvider, type DraftProvider } from './drafts';
+import { cloudflareOperationProvider, decideProposal, executeOperation, openAiOperationProvider, type OperationProvider } from './operations';
 
-interface Env { DB: D1Database; DEMO_BUSINESS_SLUG: string; ALLOWED_ORIGIN: string; DEMO_MODE?: string; OWNER_USERNAME?: string; OWNER_PASSWORD_HASH?: string; WEBHOOK_SECRET?: string; AI?: AiBinding; AI_MODEL?: string; LLM_BASE_URL?: string; LLM_API_KEY?: string; LLM_MODEL?: string; DRAFT_AI_ENABLED?: string; AUTOMATION_TICK_TOKEN?: string; CRM_PROVIDER?: string; CRM_EXTERNAL_ENABLED?: string; HUBSPOT_SERVICE_KEY?: string }
+interface Env { DB: D1Database; DEMO_BUSINESS_SLUG: string; ALLOWED_ORIGIN: string; DEMO_MODE?: string; OWNER_USERNAME?: string; OWNER_PASSWORD_HASH?: string; WEBHOOK_SECRET?: string; AI?: AiBinding; AI_MODEL?: string; LLM_BASE_URL?: string; LLM_API_KEY?: string; LLM_MODEL?: string; DRAFT_AI_ENABLED?: string; AUTOMATION_TICK_TOKEN?: string; CRM_PROVIDER?: string; CRM_EXTERNAL_ENABLED?: string; HUBSPOT_SERVICE_KEY?: string; OPERATIONS_AI_ENABLED?: string }
 interface Business { id: string; slug: string; name: string; description: string; timezone: string; currency: string; address: string; phone: string }
 interface Service { id: string; name: string; description: string; duration_min: number; price_minor: number }
 interface Appointment { id: string; reference: string; service_id: string; start_at: string; end_at: string; status: string; customer_contact: string; idempotency_key: string }
@@ -37,6 +38,15 @@ function crmAdapter(env: Env): CrmAdapter {
     return hubspotCrm(env.HUBSPOT_SERVICE_KEY);
   }
   return mockCrm;
+}
+
+function operationProvider(env: Env): OperationProvider | undefined {
+  if (env.OPERATIONS_AI_ENABLED !== 'true') return undefined;
+  try {
+    if (env.LLM_BASE_URL && env.LLM_API_KEY && env.LLM_MODEL) return openAiOperationProvider(env.LLM_BASE_URL,env.LLM_API_KEY,env.LLM_MODEL);
+    if (env.AI) return cloudflareOperationProvider(env.AI);
+  } catch { /* Invalid optional AI settings use deterministic intents. */ }
+  return undefined;
 }
 
 async function readText(request: Request): Promise<string> {
@@ -84,7 +94,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
   const b = await business(env.DB, env.DEMO_BUSINESS_SLUG);
   if (!b) return bad('Business is not configured', 503);
 
-  if ((url.pathname === '/api/automation/tick' || url.pathname === '/api/automation/crm-tick') && request.method === 'POST') {
+  if (['/api/automation/tick','/api/automation/crm-tick','/api/automation/assistant'].includes(url.pathname) && request.method === 'POST') {
     if (!env.AUTOMATION_TICK_TOKEN || env.AUTOMATION_TICK_TOKEN.length < 32) return bad('Automation endpoint is not configured',503);
     const supplied = request.headers.get('Authorization')?.match(/^Bearer ([A-Za-z0-9_-]{32,200})$/)?.[1];
     if (!supplied) return bad('Automation authentication required',401);
@@ -93,6 +103,11 @@ async function handle(request: Request, env: Env): Promise<Response> {
     for (let i=0;i<expectedHash.length;i++) difference |= expectedHash.charCodeAt(i)^actualHash.charCodeAt(i);
     if (difference !== 0) return bad('Automation authentication required',401);
     if (url.pathname === '/api/automation/crm-tick') return json(await processPendingCrmEvents(env.DB,b.id,2,crmAdapter(env)));
+    if (url.pathname === '/api/automation/assistant') {
+      const parsed=z.object({question:z.string().trim().min(3).max(300)}).strict().safeParse(await readJson(request));
+      if (!parsed.success) return bad('Invalid assistant request');
+      return json(await executeOperation(env.DB,b.id,parsed.data.question,'automation',operationProvider(env)));
+    }
     const reminders = await queueUpcomingReminders(env.DB,b.id);
     const followups = await queueCompletedFollowups(env.DB,b.id);
     const events = await processPendingEvents(env.DB,b.id,2,draftProvider(env));
@@ -149,6 +164,25 @@ async function handle(request: Request, env: Env): Promise<Response> {
       return json({ provider: crmAdapter(env).kind, externalConfigured: crmAdapter(env).kind === 'hubspot', events: rows.results });
     }
     if (url.pathname === '/api/owner/integrations/run' && request.method === 'POST') return json(await processPendingCrmEvents(env.DB,b.id,10,crmAdapter(env)));
+    if (url.pathname === '/api/owner/assistant/query' && request.method === 'POST') {
+      const parsed=z.object({question:z.string().trim().min(3).max(300)}).strict().safeParse(await readJson(request));
+      if (!parsed.success) return bad('Invalid assistant request');
+      return json(await executeOperation(env.DB,b.id,parsed.data.question,'owner',operationProvider(env)));
+    }
+    if (url.pathname === '/api/owner/assistant/history' && request.method === 'GET') {
+      const [runs,proposals]=await Promise.all([
+        env.DB.prepare('SELECT id,actor,intent,mode,latency_ms,proposal_id,created_at FROM assistant_runs WHERE business_id=? ORDER BY created_at DESC,rowid DESC LIMIT 30').bind(b.id).all(),
+        env.DB.prepare(`SELECT p.id,p.service_id,s.name AS service_name,p.old_price_minor,p.new_price_minor,p.state,p.created_at,p.decided_at
+          FROM assistant_proposals p JOIN services s ON s.id=p.service_id AND s.business_id=p.business_id
+          WHERE p.business_id=? ORDER BY p.created_at DESC,p.rowid DESC LIMIT 30`).bind(b.id).all(),
+      ]);
+      return json({runs:runs.results,proposals:proposals.results});
+    }
+    const proposalMatch=url.pathname.match(/^\/api\/owner\/assistant\/proposals\/([0-9a-f-]{36})\/(approve|reject)$/);
+    if (proposalMatch && request.method==='POST') {
+      const decided=await decideProposal(env.DB,b.id,proposalMatch[1]!,proposalMatch[2]! as 'approve'|'reject');
+      return decided?json(decided):bad('Proposal changed or is no longer available',409);
+    }
     if (url.pathname === '/api/owner/leads' && request.method === 'GET') {
       const leads = await env.DB.prepare(`SELECT l.id,l.contact_key,c.display_name,c.contact,l.service_id,s.name AS service_name,
         l.requested_date,l.requested_time,l.language,l.priority,l.mode,l.latency_ms,l.created_at

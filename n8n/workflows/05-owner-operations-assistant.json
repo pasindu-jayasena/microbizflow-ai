@@ -1,0 +1,10 @@
+{
+  "name":"MicroBizFlow 05 - Owner operations assistant",
+  "nodes":[
+    {"parameters":{"httpMethod":"POST","path":"microbizflow/owner-assistant","responseMode":"responseNode","options":{}},"id":"b72bf7ad-2dde-4e7d-94a1-270ce18948d8","name":"Local owner request","type":"n8n-nodes-base.webhook","typeVersion":2,"position":[220,300],"webhookId":"b72bf7ad-2dde-4e7d-94a1-270ce18948d8"},
+    {"parameters":{"method":"POST","url":"http://127.0.0.1:8788/api/automation/assistant","authentication":"genericCredentialType","genericAuthType":"httpHeaderAuth","sendBody":true,"specifyBody":"json","jsonBody":"={{ JSON.stringify({ question: $json.body.question }) }}","options":{"timeout":10000}},"id":"2c21b78e-aa04-49d0-b4e6-97af0de4255b","name":"Ask scoped Worker assistant","type":"n8n-nodes-base.httpRequest","typeVersion":4.2,"position":[500,300],"credentials":{"httpHeaderAuth":{"id":"mbf-local-automation","name":"Local MicroBizFlow automation"}}},
+    {"parameters":{"respondWith":"json","responseBody":"={{ JSON.stringify($json) }}","options":{}},"id":"69a4fdca-534a-4127-bc82-6cc4ae5b8ed4","name":"Return answer or proposal","type":"n8n-nodes-base.respondToWebhook","typeVersion":1.1,"position":[760,300]}
+  ],
+  "connections":{"Local owner request":{"main":[[{"node":"Ask scoped Worker assistant","type":"main","index":0}]]},"Ask scoped Worker assistant":{"main":[[{"node":"Return answer or proposal","type":"main","index":0}]]}},
+  "settings":{"executionOrder":"v1","timezone":"Asia/Colombo"},"active":false,"pinData":{},"meta":{"templateCredsSetupCompleted":false}
+}

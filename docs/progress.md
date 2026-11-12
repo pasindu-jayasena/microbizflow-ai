@@ -105,6 +105,12 @@ Added a HubSpot contacts upsert adapter behind an explicit non-demo flag and ser
 
 Next: build the permission-controlled owner assistant, then run full regression and prepare a deployment review for the new D1 migrations.
 
+## 2026-11-13 — Owner operations assistant workflow
+
+Added fixed read-only business queries and explicit service price proposals with a separate owner approval step. D1 migration `0013_operations_assistant.sql` stores proposal and execution audit history without retaining question text. Optional LLM classification has schema and deterministic price guards; the local demo uses rules because no model credential or AI binding is available. The fifth n8n Community workflow imported, published, and returned a local pending appointment count. A local smoke passed private access, scoped service token, approval-only mutation, duplicate approval, and audit checks. A browser test passed owner query and proposal rejection. The code and migration remain on `deploymentBranch` and are not deployed yet.
+
+Next: run full regression, review the Free-tier deployment impact of migrations 0010–0013, then request approval for applying them to production D1 and updating the existing Pages and Cron Worker.
+
 ## Next work
 
-Continue monitoring Cloudflare Free usage and the hourly Cron's CPU and outcome. The owner should save the ignored production password in a password manager before deleting its local file. Future UI and feature changes should continue through `deploymentBranch`, green CI, verified owner pushes, and explicit Pages deployments.
+Prepare a reviewed production migration and release plan for the four pending D1 migrations. Keep the public demo in mock CRM and rules mode until scoped development credentials and a separate AI binding approval are available. Check branch CI, exact production resource bindings, and Cloudflare Free limits before any deployment. The owner should save the ignored production password in a password manager before deleting its local file.

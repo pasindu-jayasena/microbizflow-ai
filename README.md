@@ -14,17 +14,29 @@ MicroBizFlow AI is a deployed React and TypeScript application backed by a Cloud
 | --- | --- |
 | Booking correctness | Configurable services and hours, business time zone, real slot availability, D1-enforced two-chair capacity, idempotent requests, private-code status lookup and cancellation |
 | Owner operations | Protected sessions and business-scoped routes for appointment decisions, service settings, customer records, CSV export, and analytics |
-| AI-ready assistance | English and Sinhala enquiry suggestions, optional validated Workers AI adapter, deterministic fallback, and a booking API that checks every suggested slot |
-| Workflow automation | Durable events, owner-approved customer drafts, reminder preparation, retry handling, and a mock outbox that never sends real messages |
+| AI assistance | English and Sinhala enquiry suggestions, configurable LLM adapters with validated output and deterministic fallback, plus a booking API that checks every suggested slot |
+| Workflow automation | Five version-controlled n8n Community workflows with hosted Worker equivalents: lead intake, owner-approved booking, reminders and follow-ups, CRM sync, and permission-controlled owner queries |
 | Delivery | Cloudflare Pages, Workers, and D1 on Free services; TypeScript, lint, unit and schema tests, browser CI, and live HTTPS smoke checks |
 
-The authenticated owner workspace includes a structured enquiry review queue, private customer notes and deletion, workflow activity, and mock CRM sync. The public owner preview uses sample records held only in browser memory; it does not read private owner data. See the [testing record](docs/testing.md) for measured checks and the [roadmap](docs/roadmap.md) for integrations that remain future work.
+The authenticated owner workspace includes an enquiry review queue, private customer notes and deletion, workflow activity, mock CRM sync, and an operations assistant that requires approval before changing a service price. The public owner preview uses sample records held only in browser memory. **The live site currently runs an earlier release; the five-workflow implementation is tested on `deploymentBranch` and awaits the production migration and deployment review.** See the [local n8n guide](docs/n8n.md), [automation design](docs/automation.md), and [progress record](docs/progress.md).
 
 ## Assistant and automation
 
 The live assistant extracts possible service and timing details from English or Sinhala enquiries without an external model. An optional Workers AI adapter is implemented but **not enabled** in this deployment. Suggestions never book an appointment: the visitor selects a real slot, and the API applies working-hours, timing, and capacity rules. Missing details remain open for the visitor to choose.
 
 Booking events create durable owner activity and customer drafts. The owner reviews requests and approves drafts before the mock delivery step. The [interactive workflow preview](https://microbizflow-ai.pages.dev/owner-preview) lets visitors inspect this sequence without signing in.
+
+### Five executable workflows on `deploymentBranch`
+
+| Workflow | Hosted Worker behavior | Local n8n demonstration |
+| --- | --- | --- |
+| Lead qualification | Consent-gated lead and customer record, validated optional LLM classification, idempotency | Import `01-lead-qualification.json` and post a fictional enquiry |
+| Appointment approval | Live availability and D1 capacity check; owner confirms a pending request | Import `02-appointment-request.json` and submit an available slot |
+| Reminders and follow-ups | Hourly Cron queues drafts; owner approval precedes mock delivery | Import `03-reminders-followups.json` and call the local tick |
+| CRM synchronization | Durable event keys, retry backoff, dead-letter queue; optional non-demo HubSpot adapter | Import `04-crm-sync.json` and process due events |
+| Owner operations assistant | Fixed read-only business queries; explicit price proposals need owner approval | Import `05-owner-operations-assistant.json` and ask a scoped question |
+
+All five workflows have importable JSON, local execution checks, and Worker tests. The public demo has no model key or real CRM credential, so model calls and HubSpot delivery remain unverified. It sends no real customer messages. [Setup and observed results](docs/n8n.md) · [CRM boundary](docs/integrations.md).
 
 ## Product preview
 
@@ -37,6 +49,8 @@ Booking events create durable owner activity and customer drafts. The owner revi
 ![AI and automation flow from enquiry to owner review](docs/screenshots/ai-automation.png)
 
 ![Interactive owner approval workflow preview](docs/screenshots/owner-automation-preview.png)
+
+![Owner operations assistant with read-only answers and reviewed price proposals](docs/screenshots/owner-operations-assistant.png)
 
 [Full owner workspace](docs/screenshots/owner-preview.png) · [Mobile owner view](docs/screenshots/owner-preview-mobile.png) · [Owner sign-in](docs/screenshots/owner-login.png). Screenshots use sample data.
 
@@ -83,6 +97,8 @@ npm run test:security:local
 npm run test:scheduled:local
 npm run test:reminders:local
 npm run test:crm:local
+npm run test:operations:local
+npm run test:n8n
 npm run test:demo:local
 ```
 
@@ -94,7 +110,7 @@ The protected workflow smoke test needs `LOCAL_OWNER_PASSWORD` set in that termi
 
 ## Architecture
 
-React, TypeScript, Vite, and Tailwind CSS power the web UI. A TypeScript Cloudflare Worker handles REST routes with Zod validation. The same handler runs as a Cloudflare Pages Function, keeping the web app and session cookie on one origin. Cloudflare D1 stores the configuration, appointments, owner sessions, and audit records. The database rejects overlapping reservations on a resource. Optional AI can suggest fields, while booking rules remain deterministic. External integrations are planned.
+React, TypeScript, Vite, and Tailwind CSS power the web UI. A TypeScript Cloudflare Worker handles REST routes with Zod validation. The same handler runs as a Cloudflare Pages Function, keeping the web app and session cookie on one origin. Cloudflare D1 stores configuration, appointments, owner sessions, workflow histories, and audit records. The database rejects overlapping reservations on a resource. Optional AI can suggest fields and classify owner questions; booking and approval rules remain deterministic. The HubSpot adapter needs a scoped development credential before its first live test.
 
 ```mermaid
 flowchart LR

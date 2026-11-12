@@ -33,6 +33,7 @@
     "test:followups:local": "node scripts/smoke-followups.mjs",
     "test:automation-tick:local": "node scripts/smoke-automation-tick.mjs",
     "test:crm:local": "node scripts/smoke-crm.mjs",
+    "test:operations:local": "node scripts/smoke-operations.mjs",
     "test:demo:local": "node scripts/smoke-demo.mjs",
     "test:e2e": "playwright test",
     "owner:setup:local": "node scripts/setup-owner.mjs",
